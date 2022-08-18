@@ -1,3 +1,5 @@
+github.com/gomarkdown/markdown v0.0.0-20220817224203-2206187d3406 h1:+8y2dPXzzAipmLQ3ychw8ERVhe2BZlYG3bf/7A5m9qw=
+github.com/gomarkdown/markdown v0.0.0-20220817224203-2206187d3406/go.mod h1:JDGcbDT52eL4fju3sZ4TeHGsQwhG9nbDV21aMyhwPoA=
 github.com/tidwall/gjson v1.14.3 h1:9jvXn7olKEHU1S9vwoMGliaT8jq1vJ7IH/n9zD9Dnlw=
 github.com/tidwall/gjson v1.14.3/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
