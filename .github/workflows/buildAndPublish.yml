@@ -1,0 +1,42 @@
+name: buildAndPublish
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    # - name: Set up Go
+    #   uses: actions/setup-go@v3
+    #   with:
+    #     go-version: 1.18
+    - name: Cross compile
+      uses: crazy-max/ghaction-xgo@v2
+      with:
+        xgo_version: latest
+        go_version: 1.19
+        dest: /home/runner/work/oauth-blogger/builds
+        prefix: oauth-blogger
+        targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,windows/arm,windows/arm64,linux/arm,darwin/amd64
+    - name: Compress releases
+      run: zip -r /home/runner/work/oauth-blogger/binaries.zip /home/runner/work/oauth-blogger/builds/*
+    - name: Nightly Publish
+      uses: WebFreak001/deploy-nightly@v1.2.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # automatically provided by github actions
+      with: 
+        upload_url: https://uploads.github.com/repos/slashtechno/oauth-blogger/releases/74787789/assets{?name,label} # find out this value by opening https://api.github.com/repos/<owner>/<repo>/releases in your browser and copy the full "upload_url" value including the {?name,label} part
+        release_id: 74787789 # same as above (id can just be taken out the upload_url, it's used to find old releases)
+        asset_path: /home/runner/work/oauth-blogger/binaries.zip # path to archive to upload
+        asset_name: oauth-blogger-binaries-rolling-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+        asset_content_type: application/zip # required by GitHub API
+        max_releases: 2 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
+
+    # - name: Build
+    #   run: go build -v ./main.go
