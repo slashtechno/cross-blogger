@@ -1,4 +1,4 @@
-name: buildAndPublish
+name: Continuous Deployment
 
 on:
   push:
@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - id: commit
+      uses: pr-mpt/actions-commit-hash@v1
 
     # - name: Set up Go
     #   uses: actions/setup-go@v3
@@ -23,15 +25,15 @@ jobs:
         go_version: 1.19
         dest: /home/runner/work/oauth-blogger/builds
         prefix: oauth-blogger
-        targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,windows/arm,windows/arm64,linux/arm,darwin/amd64
+        # targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,windows/arm,windows/arm64,linux/arm,darwin/amd64
     - name: Compress releases
       run: zip -r /home/runner/work/oauth-blogger/binaries.zip /home/runner/work/oauth-blogger/builds/*
     - name: Release
       uses: softprops/action-gh-release@v0.1.14
       with:
-        name: CI
+        name: Rolling release
         prerelease: true
-        tag_name: github.ref
+        tag_name: ${{ steps.commit.outputs.short }}
         files: |
           /home/runner/work/oauth-blogger/binaries.zip 
           /home/runner/work/oauth-blogger/builds/*
