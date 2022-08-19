@@ -20,19 +20,18 @@ jobs:
       uses: crazy-max/ghaction-xgo@v2
       with:
         xgo_version: latest
-        go_version: 1.18
-        dest: build
+        go_version: 1.19
+        dest: /home/runner/work/oauth-blogger/builds
         prefix: oauth-blogger
         targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,windows/arm,windows/arm64,linux/arm,darwin/amd64
-        v: true
-        x: false
-        race: false
-        ldflags: -s -w
-        buildmode: default
     - name: pwd
       run:  pwd
-    - name: ls
+    - name: ls pwd
       run: ls
+    - name: ls builds
+      run: ls /home/runner/work/oauth-blogger/builds
+    - name: ls /home/runner/work/oauth-blogger
+      run: ls /home/runner/work/oauth-blogger
     - name: env
       run: env
     # - name: Build
