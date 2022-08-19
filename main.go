@@ -94,12 +94,9 @@ blog should be your blog's URL. For example, https://example.blogspot.com`)
 func genPost() {
 	fmt.Println(`Post formatting (input numeric selection):
 1) Raw HTML
-2) Markdown (will get converted to HTML automatically)`)
-	reader := bufio.NewReader(os.Stdin)
-	formatting, err := reader.ReadString('\n')
-	checkNilErr(err)
-	formatting = strings.TrimSpace(formatting)
-	fmt.Print("\n")
+2) Import from dev.to
+3) Markdown (will get converted to HTML automatically)`)
+	formatting := singleLineInput()
 	fmt.Print("Title: ")
 	title := singleLineInput()
 	if formatting == "1" {
@@ -108,7 +105,8 @@ func genPost() {
 		htmlBytes, err := os.ReadFile(filepath)
 		html := string(htmlBytes)
 		checkNilErr(err)
-		fmt.Print("Type \"Yes\" and press enter to confirm ")
+		fmt.Println(html)
+		fmt.Print("Type \"Yes\" and press enter to confirm: ")
 		confirmation := singleLineInput()
 		if confirmation == "Yes" {
 			pushPost(html, title)
@@ -116,6 +114,21 @@ func genPost() {
 			log.Fatalln("Confirmation was not given")
 		}
 	} else if formatting == "2" {
+		fmt.Print("dev.to article URL: ")
+		article := singleLineInput()
+		index := 15
+		api_article := article[:index] + "api/articles/" + article[index:]
+		resultBody := request(api_article, "GET", false)
+		html := gjson.Get(resultBody, "body_html").String()
+		fmt.Println(html)
+		fmt.Print("Type \"Yes\" and press enter to confirm: ")
+		confirmation := singleLineInput()
+		if confirmation == "Yes" {
+			pushPost(html, title)
+		} else {
+			log.Fatalln("Confirmation was not given")
+		}
+	} else if formatting == "3" {
 		fmt.Print("COMPLETE filepath to Markdown file: ")
 		filepath := singleLineInput()
 		markdownBytes, err := os.ReadFile(filepath)
@@ -124,6 +137,7 @@ func genPost() {
 		extensions := parser.CommonExtensions | parser.AutoHeadingIDs
 		mdparser := parser.NewWithExtensions(extensions)
 		htmlBytes := markdown.ToHTML(markdownBytes, mdparser, nil)
+		fmt.Println(string(htmlBytes))
 		fmt.Print("Type \"Yes\" and press enter to confirm ")
 		confirmation := singleLineInput()
 		if confirmation == "Yes" {
