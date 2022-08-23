@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gomarkdown/markdown"
+	mdlib "github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/tidwall/gjson"
 )
@@ -88,88 +88,105 @@ blog should be your blog's URL. For example, https://example.blogspot.com`)
 		getBlogID()
 	}
 
-	genPost()
+	chooseSource()
 }
 
-func genPost() {
-	fmt.Println(`Post formatting (input numeric selection):
-1) Raw HTML
-2) Import from dev.to
-3) Markdown (will get converted to HTML automatically)`)
-	formatting := singleLineInput()
-	fmt.Print("Title: ")
-	title := singleLineInput()
-	if formatting == "1" {
-		fmt.Print("COMPLETE filepath to HTML file: ")
-		filepath := singleLineInput()
-		htmlBytes, err := os.ReadFile(filepath)
-		html := string(htmlBytes)
-		checkNilErr(err)
-		fmt.Println(html)
-		fmt.Print("Type \"Yes\" and press enter to confirm: ")
-		confirmation := singleLineInput()
-		if confirmation == "Yes" {
-			pushPost(html, title)
-		} else {
-			log.Fatalln("Confirmation was not given")
-		}
-	} else if formatting == "2" {
+func chooseSource() {
+	fmt.Println(`Choose a source (input numeric selection):
+1) Dev.to
+2) Blogger
+3) Markdown file
+4) HTML File`)
+	source := singleLineInput()
+	var title, html, markdown string
+	if source == "1" || source == "dev.to" {
 		fmt.Print("dev.to article URL: ")
 		article := singleLineInput()
 		index := 15
 		api_article := article[:index] + "api/articles/" + article[index:]
 		resultBody := request(api_article, "GET", false)
-		html := gjson.Get(resultBody, "body_html").String()
-		fmt.Println(html)
-		fmt.Print("Type \"Yes\" and press enter to confirm: ")
-		confirmation := singleLineInput()
-		if confirmation == "Yes" {
-			pushPost(html, title)
-		} else {
-			log.Fatalln("Confirmation was not given")
-		}
-	} else if formatting == "3" {
-		fmt.Print("COMPLETE filepath to Markdown file: ")
+		title = gjson.Get(resultBody, "title").String()
+		html = gjson.Get(resultBody, "body_html").String()
+		markdown = gjson.Get(resultBody, "body_markdown").String()
+	} else if source == "2" || source == "blogger" {
+		log.Fatalln("Not yet implemented")
+	} else if source == "3" || source == "markdown" {
+		fmt.Print("Title: ")
+		title = singleLineInput()
+		fmt.Print("Path to Markdown file: ")
 		filepath := singleLineInput()
 		markdownBytes, err := os.ReadFile(filepath)
 		checkNilErr(err)
 		// Setup markdown parser extensions
 		extensions := parser.CommonExtensions | parser.AutoHeadingIDs
 		mdparser := parser.NewWithExtensions(extensions)
-		htmlBytes := markdown.ToHTML(markdownBytes, mdparser, nil)
-		fmt.Println(string(htmlBytes))
-		fmt.Print("Type \"Yes\" and press enter to confirm ")
-		confirmation := singleLineInput()
-		if confirmation == "Yes" {
-			pushPost(string(htmlBytes), title)
-		} else {
-			log.Fatalln("Confirmation was not given")
-		}
+		html = string(mdlib.ToHTML(markdownBytes, mdparser, nil))
+	} else if source == "4" || source == "html" {
+		fmt.Print("Path to HTML file: ")
+		filepath := singleLineInput()
+		htmlBytes, err := os.ReadFile(filepath)
+		html = string(htmlBytes)
+		checkNilErr(err)
 	} else {
 		log.Fatalln("Invalid option")
 	}
-
+	selectDestinations(title, html, markdown)
 }
 
-func pushPost(content string, title string) {
-	url := "https://www.googleapis.com/blogger/v3/blogs/" + configuration.BlogID + "/posts/"
-	payloadStruct := PostJson{Kind: "blogger#post", Blog: struct {
-		ID string `json:"id"`
-	}{ID: getBlogID()}, Title: title, Content: content}
-	payload, err := json.Marshal(payloadStruct)
-	checkNilErr(err)
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(payload)))
-	checkNilErr(err)
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+getAccessToken())
-	_, err = http.DefaultClient.Do(req)
-	// res, err := http.DefaultClient.Do(req)
-	checkNilErr(err)
-	// defer res.Body.Close()
-	// resultBodyBytes, err := io.ReadAll(res.Body)
-	// checkNilErr(err)
-	// resultBody := string(resultBodyBytes)
-	// log.Println(resultBody)
+func selectDestinations(title string, html string, markdown string) {
+	destinations := []string{}
+	for {
+		fmt.Println(`Select a destination, and press enter (input numeric selection)
+1) Dev.to
+2) Blogger
+3) Markdown file
+4) HTML file
+5) Stop adding`)
+		destinationSelection := singleLineInput()
+		if destinationSelection == "1" || destinationSelection == "dev.to" {
+			destinations = append(destinations, "dev.to")
+		} else if destinationSelection == "2" || destinationSelection == "blogger" {
+			destinations = append(destinations, "blogger")
+		} else if destinationSelection == "3" || destinationSelection == "markdown" {
+			destinations = append(destinations, "markdown")
+		} else if destinationSelection == "4" || destinationSelection == "html" {
+			destinations = append(destinations, "html")
+		} else if destinationSelection == "5" || destinationSelection == "stop" {
+			break
+		} else {
+			log.Fatalln("Invalid option")
+		}
+	}
+	log.Println("Destinations: " + strings.Join(destinations, ", "))
+	pushPost(title, html, markdown, destinations)
+}
+
+func pushPost(title string, html string, markdown string, destinations []string) {
+	for _, destination := range destinations {
+		if destination == "blogger" {
+			log.Println("Pushing to Blogger")
+			url := "https://www.googleapis.com/blogger/v3/blogs/" + configuration.BlogID + "/posts/"
+			payloadStruct := PostJson{Kind: "blogger#post", Blog: struct {
+				ID string `json:"id"`
+			}{ID: getBlogID()}, Title: title, Content: html}
+			payload, err := json.Marshal(payloadStruct)
+			checkNilErr(err)
+			req, err := http.NewRequest("POST", url, strings.NewReader(string(payload)))
+			checkNilErr(err)
+			req.Header.Add("content-type", "application/json")
+			req.Header.Add("Authorization", "Bearer "+getAccessToken())
+			_, err = http.DefaultClient.Do(req)
+			// res, err := http.DefaultClient.Do(req)
+			checkNilErr(err)
+			// defer res.Body.Close()
+			// resultBodyBytes, err := io.ReadAll(res.Body)
+			// checkNilErr(err)
+			// resultBody := string(resultBodyBytes)
+			// log.Println(resultBody)
+		} else {
+			log.Printf("Destination \"%v\" not yet implemented\n", destination)
+		}
+	}
 
 }
 
@@ -237,7 +254,7 @@ func singleLineInput() string {
 	input, err := reader.ReadString('\n')
 	checkNilErr(err)
 	input = strings.TrimSpace(input)
-	fmt.Print("\n")
+	// fmt.Print("\n")
 	return input
 }
 

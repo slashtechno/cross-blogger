@@ -37,6 +37,11 @@ jobs:
         files: |
           /home/runner/work/oauth-blogger/binaries.zip 
           /home/runner/work/oauth-blogger/builds/*
+    - name:
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: /home/runner/work/oauth-blogger/builds/*
 
     # - name: Rolling Publish
     #   uses: WebFreak001/deploy-nightly@v1.2.0
