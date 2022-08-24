@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	htmltomd "github.com/JohannesKaufmann/html-to-markdown"
 	mdlib "github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/tidwall/gjson"
@@ -24,14 +25,24 @@ type Configuration struct {
 	AuthorizationCode string `json:"authorization_code"`
 	Blog              string `json:"blog"`
 	BlogID            string `json:"blog_id"`
+	DevtoAPI          string `json:"devto_api"`
 }
-type PostJson struct {
+type BloggerPostPayload struct {
 	Kind string `json:"kind"`
 	Blog struct {
 		ID string `json:"id"`
 	} `json:"blog"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
+}
+
+type DevtoPostPayload struct {
+	Article struct {
+		Title        string   `json:"title"`
+		BodyMarkdown string   `json:"body_markdown"`
+		Published    bool     `json:"published"`
+		Tags         []string `json:"tags"`
+	} `json:"article"`
 }
 
 var configuration Configuration
@@ -53,18 +64,22 @@ func main() {
 {
 	"client_id": "",
 	"client_secret": "",
-	"blog": ""
+	"blog": "",
+	"devto_api": ""
 }
 		
 `)
 		fmt.Println(`Please add the appropriate values to config.json
 client_id and client_secret can be retrieved from Google Cloud Console
-blog should be your blog's URL. For example, https://example.blogspot.com`)
+blog should be your blog's URL. For example, https://example.blogspot.com
+devto_api should be your dev.to API key`)
 		os.Exit(0)
 	}
 
 	configuration := loadConfiguration()
 
+	// The following should only be ran on the first function that uses them.
+	// That way, if the user isn't using all the services, they don't need to configure everything
 	message := "Please set the following in config.json"
 	if configuration.ClientID == "" {
 		message += "\n- client_id"
@@ -74,6 +89,9 @@ blog should be your blog's URL. For example, https://example.blogspot.com`)
 	}
 	if configuration.Blog == "" {
 		message += "\n- blog"
+	}
+	if configuration.DevtoAPI == "" {
+		message += "\n- devto_api"
 	}
 
 	if message != "Please set the following in config.json" {
@@ -109,7 +127,15 @@ func chooseSource() {
 		html = gjson.Get(resultBody, "body_html").String()
 		markdown = gjson.Get(resultBody, "body_markdown").String()
 	} else if source == "2" || source == "blogger" {
-		log.Fatalln("Not yet implemented")
+		fmt.Print("Blogger post URL: ")
+		path := strings.Replace(singleLineInput(), configuration.Blog, "", 1)
+		url := "https://www.googleapis.com/blogger/v3/blogs/" + configuration.BlogID + "/posts/bypath?path=" + path
+		resultBody := request(url, "GET", true)
+		html = gjson.Get(resultBody, "content").String()
+		title = gjson.Get(resultBody, "title").String()
+		var err error
+		markdown, err = htmltomd.NewConverter("", true, nil).ConvertString(html)
+		checkNilErr(err)
 	} else if source == "3" || source == "markdown" {
 		fmt.Print("Title: ")
 		title = singleLineInput()
@@ -120,12 +146,15 @@ func chooseSource() {
 		// Setup markdown parser extensions
 		extensions := parser.CommonExtensions | parser.AutoHeadingIDs
 		mdparser := parser.NewWithExtensions(extensions)
+		markdown = string(markdownBytes)
 		html = string(mdlib.ToHTML(markdownBytes, mdparser, nil))
 	} else if source == "4" || source == "html" {
 		fmt.Print("Path to HTML file: ")
 		filepath := singleLineInput()
 		htmlBytes, err := os.ReadFile(filepath)
+		checkNilErr(err)
 		html = string(htmlBytes)
+		markdown, err = htmltomd.NewConverter("", true, nil).ConvertString(html)
 		checkNilErr(err)
 	} else {
 		log.Fatalln("Invalid option")
@@ -166,7 +195,7 @@ func pushPost(title string, html string, markdown string, destinations []string)
 		if destination == "blogger" {
 			log.Println("Pushing to Blogger")
 			url := "https://www.googleapis.com/blogger/v3/blogs/" + configuration.BlogID + "/posts/"
-			payloadStruct := PostJson{Kind: "blogger#post", Blog: struct {
+			payloadStruct := BloggerPostPayload{Kind: "blogger#post", Blog: struct {
 				ID string `json:"id"`
 			}{ID: getBlogID()}, Title: title, Content: html}
 			payload, err := json.Marshal(payloadStruct)
@@ -176,13 +205,30 @@ func pushPost(title string, html string, markdown string, destinations []string)
 			req.Header.Add("content-type", "application/json")
 			req.Header.Add("Authorization", "Bearer "+getAccessToken())
 			_, err = http.DefaultClient.Do(req)
-			// res, err := http.DefaultClient.Do(req)
 			checkNilErr(err)
-			// defer res.Body.Close()
-			// resultBodyBytes, err := io.ReadAll(res.Body)
-			// checkNilErr(err)
-			// resultBody := string(resultBodyBytes)
-			// log.Println(resultBody)
+		} else if destination == "dev.to" {
+			log.Println("Pushing to dev.to")
+			url := "https://dev.to/api/articles"
+			payloadStruct := DevtoPostPayload{Article: struct {
+				Title        string   `json:"title"`
+				BodyMarkdown string   `json:"body_markdown"`
+				Published    bool     `json:"published"`
+				Tags         []string `json:"tags"`
+			}{Title: title, BodyMarkdown: markdown, Published: true, Tags: []string{}}}
+			payload, err := json.MarshalIndent(payloadStruct, "", "    ")
+			log.Println(strings.NewReader(string(payload)))
+			log.Println(string(payload))
+			checkNilErr(err)
+			req, err := http.NewRequest("POST", url, strings.NewReader(string(payload)))
+			checkNilErr(err)
+			req.Header.Add("api-key", configuration.DevtoAPI)
+			req.Header.Add("content-type", "application/json")
+			res, err := http.DefaultClient.Do(req)
+			checkNilErr(err)
+			defer res.Body.Close()
+			resultBodyBytes, err := io.ReadAll(res.Body)
+			checkNilErr(err)
+			log.Println(string(resultBodyBytes))
 		} else {
 			log.Printf("Destination \"%v\" not yet implemented\n", destination)
 		}
