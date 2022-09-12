@@ -3,14 +3,14 @@ module blogger-oauth-poster
 go 1.18
 
 require (
-	github.com/JohannesKaufmann/html-to-markdown v1.3.5
+	github.com/JohannesKaufmann/html-to-markdown v1.3.6
 	github.com/tidwall/gjson v1.14.3
 )
 
 require (
-	github.com/PuerkitoBio/goquery v1.5.1 // indirect
-	github.com/andybalholm/cascadia v1.1.0 // indirect
-	golang.org/x/net v0.0.0-20200320220750-118fecf932d8 // indirect
+	github.com/PuerkitoBio/goquery v1.8.0 // indirect
+	github.com/andybalholm/cascadia v1.3.1 // indirect
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
 )
 
 require (
