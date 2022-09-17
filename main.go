@@ -244,6 +244,14 @@ func pushPost(title string, html string, markdown string, destinations []Destina
 			resultBodyBytes, err := io.ReadAll(res.Body)
 			checkNilErr(err)
 			log.Println(string(resultBodyBytes))
+		} else if destination.DestinationType == "markdown" {
+			file, err := os.OpenFile(destination.DestinationSpecifier, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+			checkNilErr(err)
+			file.WriteString(markdown)
+		} else if destination.DestinationType == "html" {
+			file, err := os.OpenFile(destination.DestinationSpecifier, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+			checkNilErr(err)
+			file.WriteString(html)
 		} else {
 			log.Printf("Destination \"%v\" not yet implemented\n", destination)
 		}
