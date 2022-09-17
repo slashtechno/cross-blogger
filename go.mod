@@ -1,4 +1,4 @@
-module blogger-oauth-poster
+module github.com/slashtechno/oauth-blogger
 
 go 1.18
 
