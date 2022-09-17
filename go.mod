@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.3.6
+	github.com/cheynewallace/tabby v1.1.1
 	github.com/tidwall/gjson v1.14.3
 )
 

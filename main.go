@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	htmltomd "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/cheynewallace/tabby"
 	mdlib "github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/tidwall/gjson"
@@ -34,6 +35,11 @@ type BloggerPostPayload struct {
 	} `json:"blog"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
+}
+
+type Destination struct {
+	DestinationType      string
+	DestinationSpecifier string
 }
 
 type DevtoPostPayload struct {
@@ -163,7 +169,7 @@ func chooseSource() {
 }
 
 func selectDestinations(title string, html string, markdown string) {
-	destinations := []string{}
+	destinations := []Destination{}
 	for {
 		fmt.Println(`Select a destination, and press enter (input numeric selection)
 1) Dev.to
@@ -173,26 +179,35 @@ func selectDestinations(title string, html string, markdown string) {
 5) Stop adding`)
 		destinationSelection := singleLineInput()
 		if destinationSelection == "1" || destinationSelection == "dev.to" {
-			destinations = append(destinations, "dev.to")
+			destinations = append(destinations, Destination{DestinationType: "dev.to"})
 		} else if destinationSelection == "2" || destinationSelection == "blogger" {
-			destinations = append(destinations, "blogger")
+			destinations = append(destinations, Destination{DestinationType: "blogger"})
 		} else if destinationSelection == "3" || destinationSelection == "markdown" {
-			destinations = append(destinations, "markdown")
+			fmt.Print("File creation path: ")
+			path := singleLineInput()
+			destinations = append(destinations, Destination{DestinationType: "markdown", DestinationSpecifier: path})
 		} else if destinationSelection == "4" || destinationSelection == "html" {
-			destinations = append(destinations, "html")
+			fmt.Print("File creation path: ")
+			path := singleLineInput()
+			destinations = append(destinations, Destination{DestinationType: "html", DestinationSpecifier: path})
 		} else if destinationSelection == "5" || destinationSelection == "stop" {
 			break
 		} else {
 			log.Fatalln("Invalid option")
 		}
 	}
-	log.Println("Destinations: " + strings.Join(destinations, ", "))
+	destinationsTable := tabby.New()
+	destinationsTable.AddHeader("Destination", "Specifier")
+	for _, destination := range destinations {
+		destinationsTable.AddLine(destination.DestinationType, destination.DestinationSpecifier)
+	}
+	destinationsTable.Print()
 	pushPost(title, html, markdown, destinations)
 }
 
-func pushPost(title string, html string, markdown string, destinations []string) {
+func pushPost(title string, html string, markdown string, destinations []Destination) {
 	for _, destination := range destinations {
-		if destination == "blogger" {
+		if destination.DestinationType == "blogger" {
 			log.Println("Pushing to Blogger")
 			url := "https://www.googleapis.com/blogger/v3/blogs/" + configuration.BlogID + "/posts/"
 			payloadStruct := BloggerPostPayload{Kind: "blogger#post", Blog: struct {
@@ -206,7 +221,7 @@ func pushPost(title string, html string, markdown string, destinations []string)
 			req.Header.Add("Authorization", "Bearer "+getAccessToken())
 			_, err = http.DefaultClient.Do(req)
 			checkNilErr(err)
-		} else if destination == "dev.to" {
+		} else if destination.DestinationType == "dev.to" {
 			log.Println("Pushing to dev.to")
 			url := "https://dev.to/api/articles"
 			payloadStruct := DevtoPostPayload{Article: struct {
