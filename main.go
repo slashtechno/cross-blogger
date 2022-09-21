@@ -23,10 +23,9 @@ type Configuration struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	// Scope             string   `json:"scope"`
-	AuthorizationCode string `json:"authorization_code"`
 	Blog              string `json:"blog"`
 	BlogID            string `json:"blog_id"`
-	DevtoAPI          string `json:"devto_api"`
+	DevtoAPI          string `json:"devto_api_key"`
 }
 type BloggerPostPayload struct {
 	Kind string `json:"kind"`
@@ -55,6 +54,13 @@ var configuration Configuration
 var currentDirectory, _ = os.Getwd()
 var configPath = filepath.Join(currentDirectory, "config.json")
 
+/* Possible flags
+* Get refresh token
+* Title (Overrides title from source)
+* Source (String)
+* Source specifier (String)
+* Destination (Attempt to allow multiple destination flags?)
+ */
 func main() {
 	// Set the default logger to have the default flags
 	log.SetFlags(log.LstdFlags)
@@ -62,6 +68,7 @@ func main() {
 	if _, err := os.Stat(configPath); err == nil {
 		log.Println("Configuration file found")
 		// If config.json exists, load it as a struct
+		configuration = loadConfiguration()
 	} else {
 		log.Println("No configuration found, creating new configuration file")
 		configFile, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE, 0644)
@@ -71,45 +78,15 @@ func main() {
 	"client_id": "",
 	"client_secret": "",
 	"blog": "",
-	"devto_api": ""
+	"devto_api_key": ""
 }
 		
 `)
 		fmt.Println(`Please add the appropriate values to config.json
 client_id and client_secret can be retrieved from Google Cloud Console
 blog should be your blog's URL. For example, https://example.blogspot.com
-devto_api should be your dev.to API key`)
+devto_api_key should be your dev.to API key`)
 		os.Exit(0)
-	}
-
-	configuration := loadConfiguration()
-
-	// The following should only be ran on the first function that uses them.
-	// That way, if the user isn't using all the services, they don't need to configure everything
-	message := "Please set the following in config.json"
-	if configuration.ClientID == "" {
-		message += "\n- client_id"
-	}
-	if configuration.ClientSecret == "" {
-		message += "\n- client_secret"
-	}
-	if configuration.Blog == "" {
-		message += "\n- blog"
-	}
-	if configuration.DevtoAPI == "" {
-		message += "\n- devto_api"
-	}
-
-	if message != "Please set the following in config.json" {
-		log.Fatalln(message)
-	}
-	if configuration.RefreshToken == "" {
-		log.Println("No refresh token found")
-		getRefreshToken()
-	}
-	if configuration.BlogID == "" {
-		log.Println("No blog ID found")
-		getBlogID()
 	}
 
 	chooseSource()
@@ -133,6 +110,12 @@ func chooseSource() {
 		html = gjson.Get(resultBody, "body_html").String()
 		markdown = gjson.Get(resultBody, "body_markdown").String()
 	} else if source == "2" || source == "blogger" {
+		// Check if BlogID is present
+		if configuration.BlogID == "" {
+			log.Println("No blog ID found")
+			getBlogID()
+		}
+
 		fmt.Print("Blogger post URL: ")
 		path := strings.Replace(singleLineInput(), configuration.Blog, "", 1)
 		url := "https://www.googleapis.com/blogger/v3/blogs/" + configuration.BlogID + "/posts/bypath?path=" + path
@@ -208,6 +191,12 @@ func selectDestinations(title string, html string, markdown string) {
 func pushPost(title string, html string, markdown string, destinations []Destination) {
 	for _, destination := range destinations {
 		if destination.DestinationType == "blogger" {
+			// Check if BlogID is present
+			if configuration.BlogID == "" {
+				log.Println("No blog ID found")
+				getBlogID()
+			}
+
 			log.Println("Pushing to Blogger")
 			url := "https://www.googleapis.com/blogger/v3/blogs/" + configuration.BlogID + "/posts/"
 			payloadStruct := BloggerPostPayload{Kind: "blogger#post", Blog: struct {
@@ -223,6 +212,9 @@ func pushPost(title string, html string, markdown string, destinations []Destina
 			checkNilErr(err)
 		} else if destination.DestinationType == "dev.to" {
 			log.Println("Pushing to dev.to")
+			if configuration.DevtoAPI == "" {
+				log.Fatalln("\"devto_api_key\" must be set in config.json")
+			}
 			url := "https://dev.to/api/articles"
 			payloadStruct := DevtoPostPayload{Article: struct {
 				Title        string   `json:"title"`
@@ -260,6 +252,23 @@ func pushPost(title string, html string, markdown string, destinations []Destina
 }
 
 func getAccessToken() string {
+	// Check if client_id and client_secret are set
+	message := "The following must be set in config.json"
+	if configuration.ClientID == "" {
+		message += "\n- client_id"
+	}
+	if configuration.ClientSecret == "" {
+		message += "\n- client_secret"
+	}
+	if message != "The following must be set in config.json" {
+		log.Fatalln(message)
+	}
+	// Check if there is a refresh token present
+	if configuration.RefreshToken == "" {
+		log.Println("No refresh token found")
+		getRefreshToken()
+	}
+
 	// Get access token using the refresh token
 	url := "https://oauth2.googleapis.com/token?client_id=" + configuration.ClientID + "&client_secret=" + configuration.ClientSecret + "&refresh_token=" + configuration.RefreshToken + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=refresh_token"
 	// Send a POST request to the URL with no authorization headers
@@ -272,12 +281,15 @@ func getAccessToken() string {
 func getRefreshToken() {
 	// Get the authorization code from the user
 	fmt.Println("Please go to the following link in your browser:")
+	if configuration.ClientID == "" {
+		log.Fatalln("\"client_id\" must be set in config.json")
+	}
 	fmt.Println("\nhttps://accounts.google.com/o/oauth2/v2/auth?client_id=" + configuration.ClientID + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fblogger&response_type=code&access_type=offline&prompt=consent\n")
 	fmt.Println("Input the authorization code below")
-	configuration.AuthorizationCode = singleLineInput()
+	authorizationCode := singleLineInput()
 
 	// Get refresh token using the authorization code given by the user
-	url := "https://oauth2.googleapis.com/token?client_id=" + configuration.ClientID + "&client_secret=" + configuration.ClientSecret + "&code=" + configuration.AuthorizationCode + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=authorization_code"
+	url := "https://oauth2.googleapis.com/token?client_id=" + configuration.ClientID + "&client_secret=" + configuration.ClientSecret + "&code=" + authorizationCode + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=authorization_code"
 	// Send a POST request to the URL with no authorization headers
 	resultBody := request(url, "POST", false)
 	configuration.RefreshToken = gjson.Get(resultBody, "refresh_token").String()
@@ -285,6 +297,9 @@ func getRefreshToken() {
 }
 
 func getBlogID() string {
+	if configuration.Blog == "" {
+		log.Fatalln("\"blog\" must be set in config.json")
+	}
 	url := "https://www.googleapis.com/blogger/v3/blogs/byurl?url=" + configuration.Blog + "%2F"
 	// Send a GET request to the URL with bearer authorization
 	resultBody := request(url, "GET", true)
