@@ -1,4 +1,4 @@
-name: Continuous Deployment
+name: Continuous Intergration
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
 
 jobs:
 
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - id: commit
-      uses: pr-mpt/actions-commit-hash@v1
+    # - id: commit
+    #   uses: pr-mpt/actions-commit-hash@v1
 
     # - name: Set up Go
     #   uses: actions/setup-go@v3
@@ -27,12 +27,25 @@ jobs:
         # targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,windows/arm,windows/arm64,linux/arm,darwin/amd64
     - name: Compress releases
       run: zip -r /home/runner/work/oauth-blogger/binaries.zip /home/runner/work/oauth-blogger/builds/*
+    - name: Delete old release
+      uses: Archaholic/action-delete-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
+      with:
+        tag_name: rolling
+    - name: Update tag
+      uses: EndBug/latest-tag@latest
+      with:
+        ref: rolling
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         name: Rolling release
         prerelease: true
-        tag_name: ${{ steps.commit.outputs.short }}
+        # tag_name: ${{ steps.commit.outputs.short }}
+        tag_name: rolling
+        # generate_release_notes: true
+        body: "Latest commit: ${{ github.event.head_commit.message }}"
         files: |
           /home/runner/work/oauth-blogger/binaries.zip 
           /home/runner/work/oauth-blogger/builds/*
