@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	htmltomd "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/TwiN/go-color"
 	"github.com/cheynewallace/tabby"
 	mdlib "github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
@@ -23,9 +25,9 @@ type Configuration struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	// Scope             string   `json:"scope"`
-	Blog              string `json:"blog"`
-	BlogID            string `json:"blog_id"`
-	DevtoAPI          string `json:"devto_api_key"`
+	Blog     string `json:"blog"`
+	BlogID   string `json:"blog_id"`
+	DevtoAPI string `json:"devto_api_key"`
 }
 type BloggerPostPayload struct {
 	Kind string `json:"kind"`
@@ -50,10 +52,6 @@ type DevtoPostPayload struct {
 	} `json:"article"`
 }
 
-var configuration Configuration
-var currentDirectory, _ = os.Getwd()
-var configPath = filepath.Join(currentDirectory, "config.json")
-
 /* Possible flags
 * Get refresh token
 * Title (Overrides title from source)
@@ -61,7 +59,23 @@ var configPath = filepath.Join(currentDirectory, "config.json")
 * Source specifier (String)
 * Destination (Attempt to allow multiple destination flags?)
  */
+// Flags
+var (
+	sourceFlag          = flag.String("source", "", "What source to use\nAvailable sources: blogger, dev.to, markdown, html\ndev.to, markdown, and html work with source-specifier")
+	sourceSpecifierFlag = flag.String("source-specifier", "", "Specify a source location\nCan be used with sources: dev.to, markdown, html")
+	titleFlag           = flag.String("title", "", "Specify custom title instead of using the default\nAlso, if the title is not specified, using files as a source will require a title to be inputted later")
+)
+var configuration Configuration
+var currentDirectory, _ = os.Getwd()
+var configPath = filepath.Join(currentDirectory, "config.json")
+
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintln(flag.CommandLine.Output(), color.InBold("Usage:"))
+		fmt.Fprintln(flag.CommandLine.Output(), color.InBold(color.InRed("When passing a value containing whitespace, use quotes")))
+		flag.PrintDefaults()
+	}
+	flag.Parse()
 	// Set the default logger to have the default flags
 	log.SetFlags(log.LstdFlags)
 
@@ -93,16 +107,26 @@ devto_api_key should be your dev.to API key`)
 }
 
 func chooseSource() {
-	fmt.Println(`Choose a source (input numeric selection):
+	flag.Parse()
+	source := *sourceFlag
+	if *sourceFlag == "" {
+		fmt.Println(`Choose a source (input numeric selection):
 1) Dev.to
 2) Blogger
 3) Markdown file
 4) HTML File`)
-	source := singleLineInput()
+		source = singleLineInput()
+	}
 	var title, html, markdown string
+	title = *titleFlag
 	if source == "1" || source == "dev.to" {
-		fmt.Print("dev.to article URL: ")
-		article := singleLineInput()
+		var article string
+		if *sourceSpecifierFlag == "" {
+			fmt.Print("dev.to article URL: ")
+			article = singleLineInput()
+		} else {
+			article = *sourceSpecifierFlag
+		}
 		index := 15
 		api_article := article[:index] + "api/articles/" + article[index:]
 		resultBody := request(api_article, "GET", false)
@@ -126,10 +150,17 @@ func chooseSource() {
 		markdown, err = htmltomd.NewConverter("", true, nil).ConvertString(html)
 		checkNilErr(err)
 	} else if source == "3" || source == "markdown" {
-		fmt.Print("Title: ")
-		title = singleLineInput()
-		fmt.Print("Path to Markdown file: ")
-		filepath := singleLineInput()
+		var filepath string
+		if *sourceSpecifierFlag == "" {
+			fmt.Print("Path to Markdown file: ")
+			filepath = singleLineInput()
+		} else {
+			filepath = *sourceSpecifierFlag
+		}
+		if *titleFlag == "" {
+			fmt.Print("Title: ")
+			title = singleLineInput()
+		}
 		markdownBytes, err := os.ReadFile(filepath)
 		checkNilErr(err)
 		// Setup markdown parser extensions
@@ -138,8 +169,17 @@ func chooseSource() {
 		markdown = string(markdownBytes)
 		html = string(mdlib.ToHTML(markdownBytes, mdparser, nil))
 	} else if source == "4" || source == "html" {
-		fmt.Print("Path to HTML file: ")
-		filepath := singleLineInput()
+		var filepath string
+		if *sourceSpecifierFlag == "" {
+			fmt.Print("Path to HTML file: ")
+			filepath = singleLineInput()
+		} else {
+			filepath = *sourceSpecifierFlag
+		}
+		if *titleFlag == "" {
+			fmt.Print("Title: ")
+			title = singleLineInput()
+		}
 		htmlBytes, err := os.ReadFile(filepath)
 		checkNilErr(err)
 		html = string(htmlBytes)
@@ -147,6 +187,9 @@ func chooseSource() {
 		checkNilErr(err)
 	} else {
 		log.Fatalln("Invalid option")
+	}
+	if *titleFlag != "" {
+		title = *titleFlag
 	}
 	selectDestinations(title, html, markdown)
 }
@@ -223,19 +266,13 @@ func pushPost(title string, html string, markdown string, destinations []Destina
 				Tags         []string `json:"tags"`
 			}{Title: title, BodyMarkdown: markdown, Published: true, Tags: []string{}}}
 			payload, err := json.MarshalIndent(payloadStruct, "", "    ")
-			log.Println(strings.NewReader(string(payload)))
-			log.Println(string(payload))
 			checkNilErr(err)
 			req, err := http.NewRequest("POST", url, strings.NewReader(string(payload)))
 			checkNilErr(err)
 			req.Header.Add("api-key", configuration.DevtoAPI)
 			req.Header.Add("content-type", "application/json")
-			res, err := http.DefaultClient.Do(req)
+			_, err = http.DefaultClient.Do(req)
 			checkNilErr(err)
-			defer res.Body.Close()
-			resultBodyBytes, err := io.ReadAll(res.Body)
-			checkNilErr(err)
-			log.Println(string(resultBodyBytes))
 		} else if destination.DestinationType == "markdown" {
 			file, err := os.OpenFile(destination.DestinationSpecifier, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 			checkNilErr(err)
