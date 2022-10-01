@@ -58,13 +58,25 @@ type DevtoPostPayload struct {
 * Source (String)
 * Source specifier (String)
 * Destination (Attempt to allow multiple destination flags?)
+* JSON
  */
-// Flags
+
+// Source flags
 var (
 	sourceFlag          = flag.String("source", "", "What source to use\nAvailable sources: blogger, dev.to, markdown, html\ndev.to, markdown, and html work with source-specifier")
 	sourceSpecifierFlag = flag.String("source-specifier", "", "Specify a source location\nCan be used with sources: dev.to, markdown, html")
 	titleFlag           = flag.String("title", "", "Specify custom title instead of using the default\nAlso, if the title is not specified, using files as a source will require a title to be inputted later")
 )
+
+// Destination flags
+var (
+	devtoDestinationFlag      = flag.Bool("post-to-devto", false, "Post to dev.to")
+	bloggerDestinationFlag    = flag.Bool("post-to-blogger", false, "Post to Blogger")
+	markdownDestinationFlag   = flag.String("post-to-markdown", "", "Post to a markdown file\nPath to file must be specified")
+	htmlDestinationFlag       = flag.String("post-to-html", "", "Post to an HTML file\nPath to file must be specified")
+	skipDestinationPromptFlag = flag.Bool("skip-destination-prompt", false, "Don't prompt for additional destinations\nUseful when specifying destinations via CLI")
+)
+
 var configuration Configuration
 var currentDirectory, _ = os.Getwd()
 var configPath = filepath.Join(currentDirectory, "config.json")
@@ -195,33 +207,51 @@ func chooseSource() {
 }
 
 func selectDestinations(title string, html string, markdown string) {
+	flag.Parse()
 	destinations := []Destination{}
-	for {
-		fmt.Println(`Select a destination, and press enter (input numeric selection)
+	if !*skipDestinationPromptFlag {
+		for {
+			fmt.Println(`Select a destination, and press enter (input numeric selection)
 1) Dev.to
 2) Blogger
 3) Markdown file
 4) HTML file
 5) Stop adding`)
-		destinationSelection := singleLineInput()
-		if destinationSelection == "1" || destinationSelection == "dev.to" {
-			destinations = append(destinations, Destination{DestinationType: "dev.to"})
-		} else if destinationSelection == "2" || destinationSelection == "blogger" {
-			destinations = append(destinations, Destination{DestinationType: "blogger"})
-		} else if destinationSelection == "3" || destinationSelection == "markdown" {
-			fmt.Print("File creation path: ")
-			path := singleLineInput()
-			destinations = append(destinations, Destination{DestinationType: "markdown", DestinationSpecifier: path})
-		} else if destinationSelection == "4" || destinationSelection == "html" {
-			fmt.Print("File creation path: ")
-			path := singleLineInput()
-			destinations = append(destinations, Destination{DestinationType: "html", DestinationSpecifier: path})
-		} else if destinationSelection == "5" || destinationSelection == "stop" {
-			break
-		} else {
-			log.Fatalln("Invalid option")
+
+			destinationSelection := singleLineInput()
+			if destinationSelection == "1" || destinationSelection == "dev.to" {
+				destinations = append(destinations, Destination{DestinationType: "dev.to"})
+			} else if destinationSelection == "2" || destinationSelection == "blogger" {
+				destinations = append(destinations, Destination{DestinationType: "blogger"})
+			} else if destinationSelection == "3" || destinationSelection == "markdown" {
+				fmt.Print("File creation path: ")
+				path := singleLineInput()
+				destinations = append(destinations, Destination{DestinationType: "markdown", DestinationSpecifier: path})
+			} else if destinationSelection == "4" || destinationSelection == "html" {
+				fmt.Print("File creation path: ")
+				path := singleLineInput()
+				destinations = append(destinations, Destination{DestinationType: "html", DestinationSpecifier: path})
+			} else if destinationSelection == "5" || destinationSelection == "stop" {
+				break
+			} else {
+				log.Fatalln("Invalid option")
+			}
 		}
 	}
+	// CLI Destination Flag Conditionals
+	if *devtoDestinationFlag {
+		destinations = append(destinations, Destination{DestinationType: "dev.to"})
+	}
+	if *bloggerDestinationFlag {
+		destinations = append(destinations, Destination{DestinationType: "blogger"})
+	}
+	if *markdownDestinationFlag != "" {
+		destinations = append(destinations, Destination{DestinationType: "markdown", DestinationSpecifier: *markdownDestinationFlag})
+	}
+	if *htmlDestinationFlag != "" {
+		destinations = append(destinations, Destination{DestinationType: "html", DestinationSpecifier: *htmlDestinationFlag})
+	}
+
 	destinationsTable := tabby.New()
 	destinationsTable.AddHeader("Destination", "Specifier")
 	for _, destination := range destinations {
@@ -230,7 +260,6 @@ func selectDestinations(title string, html string, markdown string) {
 	destinationsTable.Print()
 	pushPost(title, html, markdown, destinations)
 }
-
 func pushPost(title string, html string, markdown string, destinations []Destination) {
 	for _, destination := range destinations {
 		if destination.DestinationType == "blogger" {
