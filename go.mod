@@ -1,4 +1,4 @@
-module github.com/slashtechno/oauth-blogger
+module github.com/slashtechno/api-blogger
 
 go 1.19
 
