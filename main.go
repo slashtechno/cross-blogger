@@ -97,7 +97,7 @@ func main() {
 		configuration = loadConfiguration()
 	} else {
 		log.Println("No configuration found, creating new configuration file")
-		configFile, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE, 0644)
+		configFile, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE, 0600)
 		checkNilErr(err)
 		configFile.WriteString(`
 {
@@ -303,11 +303,11 @@ func pushPost(title string, html string, markdown string, destinations []Destina
 			_, err = http.DefaultClient.Do(req)
 			checkNilErr(err)
 		} else if destination.DestinationType == "markdown" {
-			file, err := os.OpenFile(destination.DestinationSpecifier, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+			file, err := os.OpenFile(destination.DestinationSpecifier, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 			checkNilErr(err)
 			file.WriteString(markdown)
 		} else if destination.DestinationType == "html" {
-			file, err := os.OpenFile(destination.DestinationSpecifier, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+			file, err := os.OpenFile(destination.DestinationSpecifier, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 			checkNilErr(err)
 			file.WriteString(html)
 		} else {
@@ -409,14 +409,14 @@ func singleLineInput() string {
 }
 
 func loadConfiguration() Configuration {
-	configFile, err := os.OpenFile(configPath, os.O_RDONLY, 0644)
+	configFile, err := os.OpenFile(configPath, os.O_RDONLY, 0600)
 	checkNilErr(err)
 	json.NewDecoder(configFile).Decode(&configuration)
 	return configuration
 }
 
 func writeConfiguration() {
-	configFile, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE, 0644)
+	configFile, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE, 0600)
 	checkNilErr(err)
 	configJsonBytes, err := json.MarshalIndent(configuration, "", "    ")
 	checkNilErr(err)
