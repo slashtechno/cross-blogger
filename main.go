@@ -332,7 +332,7 @@ func getAccessToken() string {
 	// Check if there is a refresh token present
 	if configuration.RefreshToken == "" {
 		log.Println("No refresh token found")
-		getRefreshToken()
+		storeRefreshToken()
 	}
 
 	// Get access token using the refresh token
@@ -344,7 +344,7 @@ func getAccessToken() string {
 	return accessToken
 }
 
-func getRefreshToken() {
+func storeRefreshToken() {
 	// Get the authorization code from the user
 	fmt.Println("Please go to the following link in your browser:")
 	if configuration.ClientID == "" {
