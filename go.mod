@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.3.6
-	github.com/TwiN/go-color v1.2.0
+	github.com/TwiN/go-color v1.4.0
 	github.com/cheynewallace/tabby v1.1.1
 	github.com/gomarkdown/markdown v0.0.0-20220905174103-7b278df48cfb
 	github.com/tidwall/gjson v1.14.3
