@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -13,7 +12,7 @@ import (
 	"strings"
 
 	htmltomd "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/TwiN/go-color"
+	"github.com/alexflint/go-arg"
 	"github.com/cheynewallace/tabby"
 	mdlib "github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/parser"
@@ -52,42 +51,34 @@ type DevtoPostPayload struct {
 	} `json:"article"`
 }
 
-/* Possible flags
-* Get refresh token
-* Title (Overrides title from source)
-* Source (String)
-* Source specifier (String)
-* Destination (Attempt to allow multiple destination flags?)
-* JSON
- */
+var args struct {
+	// Source flags
+	Source          string `arg:"-s,--source" help:"What source to use\nAvailable sources: blogger, dev.to, markdown, html\ndev.to, markdown, and html work with source-specifier"`
+	SourceSpecifier string `arg:"--source-specifier" help:"Specify a source location\nCan be used with sources: dev.to, markdown, html"`
+	Title           string `arg:"-t,--title" help:"Specify custom title instead of using the default\nAlso, if the title is not specified, using files as a source will require a title to be inputted later"`
 
-// Source flags
-var (
-	sourceFlag          = flag.String("source", "", "What source to use\nAvailable sources: blogger, dev.to, markdown, html\ndev.to, markdown, and html work with source-specifier")
-	sourceSpecifierFlag = flag.String("source-specifier", "", "Specify a source location\nCan be used with sources: dev.to, markdown, html")
-	titleFlag           = flag.String("title", "", "Specify custom title instead of using the default\nAlso, if the title is not specified, using files as a source will require a title to be inputted later")
-)
+	// Perhaps, instead of using both Source and SourceSpecifier, use a single flag called Source which is a map
+	// go run main.go --test a=1 b=2 c=3 -x -y --abcxyz
+	// Test map[string]int `arg:"--test" help:"test"`
 
-// Destination flags
-var (
-	devtoDestinationFlag      = flag.Bool("post-to-devto", false, "Post to dev.to")
-	bloggerDestinationFlag    = flag.Bool("post-to-blogger", false, "Post to Blogger")
-	markdownDestinationFlag   = flag.String("post-to-markdown", "", "Post to a markdown file\nPath to file must be specified")
-	htmlDestinationFlag       = flag.String("post-to-html", "", "Post to an HTML file\nPath to file must be specified")
-	skipDestinationPromptFlag = flag.Bool("skip-destination-prompt", false, "Don't prompt for additional destinations\nUseful when specifying destinations via CLI")
-)
+	// Destination flags
+	DevtoDestination      bool   `arg:"-d,--post-to-devto" help:"Post to dev.to"`
+	BloggerDestination    bool   `arg:"-b,--post-to-blogger" help:"Post to Blogger"`
+	MarkdownDestination   string `arg:"-m,--post-to-markdown" help:"Post to a markdown file\nPath to file must be specified"`
+	HtmlDestination       string `arg:"-h,--post-to-html" help:"Post to an HTML file\nPath to file must be specified"`
+	SkipDestinationPrompt bool   `arg:"--skip-destination-prompt" help:"Don't prompt for additional destinations\nUseful when specifying destinations via CLI"`
+
+	// Misc flags
+	GetRefreshToken bool `arg:"--get-refresh-token" help:"Get the Google refresh token"`
+}
 
 var configuration Configuration
 var currentDirectory, _ = os.Getwd()
 var configPath = filepath.Join(currentDirectory, "config.json")
 
 func main() {
-	flag.Usage = func() {
-		fmt.Fprintln(flag.CommandLine.Output(), color.InBold("Usage:"))
-		fmt.Fprintln(flag.CommandLine.Output(), color.InBold(color.InRed("When passing a value containing whitespace, use quotes")))
-		flag.PrintDefaults()
-	}
-	flag.Parse()
+	arg.MustParse(&args)
+
 	// Set the default logger to have the default flags
 	log.SetFlags(log.LstdFlags)
 
@@ -114,14 +105,17 @@ blog should be your blog's URL. For example, https://example.blogspot.com
 devto_api_key should be your dev.to API key`)
 		os.Exit(0)
 	}
-
+	if args.GetRefreshToken {
+		storeRefreshToken()
+	}
 	chooseSource()
 }
 
 func chooseSource() {
-	flag.Parse()
-	source := *sourceFlag
-	if *sourceFlag == "" {
+	arg.MustParse(&args)
+
+	source := args.Source
+	if args.Source == "" {
 		fmt.Println(`Choose a source (input numeric selection):
 1) Dev.to
 2) Blogger
@@ -130,14 +124,14 @@ func chooseSource() {
 		source = singleLineInput()
 	}
 	var title, html, markdown string
-	title = *titleFlag
+	title = args.Title
 	if source == "1" || source == "dev.to" {
 		var article string
-		if *sourceSpecifierFlag == "" {
+		if args.SourceSpecifier == "" {
 			fmt.Print("dev.to article URL: ")
 			article = singleLineInput()
 		} else {
-			article = *sourceSpecifierFlag
+			article = args.SourceSpecifier
 		}
 		index := 15
 		api_article := article[:index] + "api/articles/" + article[index:]
@@ -163,13 +157,13 @@ func chooseSource() {
 		checkNilErr(err)
 	} else if source == "3" || source == "markdown" {
 		var filepath string
-		if *sourceSpecifierFlag == "" {
+		if args.SourceSpecifier == "" {
 			fmt.Print("Path to Markdown file: ")
 			filepath = singleLineInput()
 		} else {
-			filepath = *sourceSpecifierFlag
+			filepath = args.SourceSpecifier
 		}
-		if *titleFlag == "" {
+		if args.Title == "" {
 			fmt.Print("Title: ")
 			title = singleLineInput()
 		}
@@ -182,13 +176,13 @@ func chooseSource() {
 		html = string(mdlib.ToHTML(markdownBytes, mdparser, nil))
 	} else if source == "4" || source == "html" {
 		var filepath string
-		if *sourceSpecifierFlag == "" {
+		if args.SourceSpecifier == "" {
 			fmt.Print("Path to HTML file: ")
 			filepath = singleLineInput()
 		} else {
-			filepath = *sourceSpecifierFlag
+			filepath = args.SourceSpecifier
 		}
-		if *titleFlag == "" {
+		if args.Title == "" {
 			fmt.Print("Title: ")
 			title = singleLineInput()
 		}
@@ -200,16 +194,16 @@ func chooseSource() {
 	} else {
 		log.Fatalln("Invalid option")
 	}
-	if *titleFlag != "" {
-		title = *titleFlag
+	if args.Title != "" {
+		title = args.Title
 	}
 	selectDestinations(title, html, markdown)
 }
 
 func selectDestinations(title string, html string, markdown string) {
-	flag.Parse()
+	arg.MustParse(&args)
 	destinations := []Destination{}
-	if !*skipDestinationPromptFlag {
+	if !args.SkipDestinationPrompt {
 		for {
 			fmt.Println(`Select a destination, and press enter (input numeric selection)
 1) Dev.to
@@ -239,17 +233,17 @@ func selectDestinations(title string, html string, markdown string) {
 		}
 	}
 	// CLI Destination Flag Conditionals
-	if *devtoDestinationFlag {
+	if args.DevtoDestination {
 		destinations = append(destinations, Destination{DestinationType: "dev.to"})
 	}
-	if *bloggerDestinationFlag {
+	if args.BloggerDestination {
 		destinations = append(destinations, Destination{DestinationType: "blogger"})
 	}
-	if *markdownDestinationFlag != "" {
-		destinations = append(destinations, Destination{DestinationType: "markdown", DestinationSpecifier: *markdownDestinationFlag})
+	if args.MarkdownDestination != "" {
+		destinations = append(destinations, Destination{DestinationType: "markdown", DestinationSpecifier: args.MarkdownDestination})
 	}
-	if *htmlDestinationFlag != "" {
-		destinations = append(destinations, Destination{DestinationType: "html", DestinationSpecifier: *htmlDestinationFlag})
+	if args.HtmlDestination != "" {
+		destinations = append(destinations, Destination{DestinationType: "html", DestinationSpecifier: args.HtmlDestination})
 	}
 
 	destinationsTable := tabby.New()
@@ -344,7 +338,18 @@ func getAccessToken() string {
 	return accessToken
 }
 
-func storeRefreshToken() {
+func storeRefreshToken() { // Rename to getRefreshToken(), perhaps?
+	message := "The following must be set in config.json"
+	if configuration.ClientID == "" {
+		message += "\n- client_id"
+	}
+	if configuration.ClientSecret == "" {
+		message += "\n- client_secret"
+	}
+	if message != "The following must be set in config.json" {
+		log.Fatalln(message)
+	}
+
 	// Get the authorization code from the user
 	fmt.Println("Please go to the following link in your browser:")
 	if configuration.ClientID == "" {
@@ -421,4 +426,5 @@ func writeConfiguration() {
 	configJsonBytes, err := json.MarshalIndent(configuration, "", "    ")
 	checkNilErr(err)
 	configFile.Write(configJsonBytes)
+	// configFile.WriteString("Hello, world!")
 }
