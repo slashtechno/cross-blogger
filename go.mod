@@ -1,4 +1,4 @@
-module github.com/slashtechno/api-blogger
+module github.com/slashtechno/cross-blogger
 
 go 1.19
 

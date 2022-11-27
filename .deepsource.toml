@@ -5,7 +5,7 @@ name = "go"
 enabled = true
 
   [analyzers.meta]
-  import_root = "github.com/slashtechno/api-blogger"
+  import_root = "github.com/slashtechno/cross-blogger"
 
 [[transformers]]
 name = "gofmt"

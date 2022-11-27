@@ -21,12 +21,12 @@ jobs:
           check-latest: true
       - name: Build (Not Windows)
         if: matrix.os != 'windows-latest'
-        run: 'go build -v -o api-blogger__${{ matrix.os }}'
+        run: 'go build -v -o cross-blogger__${{ matrix.os }}'
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
-        run: 'go build -v -o api-blogger__${{ matrix.os }}.exe'
+        run: 'go build -v -o cross-blogger__${{ matrix.os }}.exe'
       - uses: actions/upload-artifact@v3
         with:
           name: binaries
-          # path: 'api-blogger__${{ matrix.os }}'
-          path: 'api-blogger__*'
+          # path: 'cross-blogger__${{ matrix.os }}'
+          path: 'cross-blogger__*'

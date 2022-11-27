@@ -24,11 +24,11 @@ jobs:
       with:
         xgo_version: latest
         go_version: 1.19
-        dest: /home/runner/work/api-blogger/builds
-        prefix: api-blogger
+        dest: /home/runner/work/cross-blogger/builds
+        prefix: cross-blogger
         # targets: windows/amd64,linux/amd64,linux/arm64,darwin/arm64,windows/arm,windows/arm64,linux/arm,darwin/amd64
     - name: Compress releases
-      run: zip -r /home/runner/work/api-blogger/binaries.zip /home/runner/work/api-blogger/builds/*
+      run: zip -r /home/runner/work/cross-blogger/binaries.zip /home/runner/work/cross-blogger/builds/*
     - name: Delete old release
       uses: Archaholic/action-delete-release@v1
       env:
@@ -49,23 +49,23 @@ jobs:
         # generate_release_notes: true
         body: "Latest commit: ${{ github.event.head_commit.message }}"
         files: |
-          /home/runner/work/api-blogger/binaries.zip 
-          /home/runner/work/api-blogger/builds/*
+          /home/runner/work/cross-blogger/binaries.zip 
+          /home/runner/work/cross-blogger/builds/*
     - name:
       uses: actions/upload-artifact@v3
       with:
         name: binaries
-        path: /home/runner/work/api-blogger/builds/*
+        path: /home/runner/work/cross-blogger/builds/*
 
     # - name: Rolling Publish
     #   uses: WebFreak001/deploy-nightly@v1.2.0
     #   env:
     #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # automatically provided by github actions
     #   with: 
-    #     upload_url: https://uploads.github.com/repos/slashtechno/api-blogger/releases/74787789/assets{?name,label} # find out this value by opening https://api.github.com/repos/<owner>/<repo>/releases in your browser and copy the full "upload_url" value including the {?name,label} part
+    #     upload_url: https://uploads.github.com/repos/slashtechno/cross-blogger/releases/74787789/assets{?name,label} # find out this value by opening https://api.github.com/repos/<owner>/<repo>/releases in your browser and copy the full "upload_url" value including the {?name,label} part
     #     release_id: 74787789 # same as above (id can just be taken out the upload_url, it's used to find old releases)
-    #     asset_path: /home/runner/work/api-blogger/binaries.zip # path to archive to upload
-    #     asset_name: api-blogger-binaries-rolling-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+    #     asset_path: /home/runner/work/cross-blogger/binaries.zip # path to archive to upload
+    #     asset_name: cross-blogger-binaries-rolling-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
     #     asset_content_type: application/zip # required by GitHub API
     #     max_releases: 2 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
 
