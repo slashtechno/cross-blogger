@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/slashtechno/cross-blogger/cmd/net"
+	"github.com/slashtechno/cross-blogger/cmd/info"
+
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +35,7 @@ func Execute() {
 
 func addSubcommandPalettes() {
 	rootCmd.AddCommand(net.NetCmd)
+	rootCmd.AddCommand(info.InfoCmd)
 }
 
 func init() {
@@ -45,6 +48,6 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	
+
 	addSubcommandPalettes()
 }
