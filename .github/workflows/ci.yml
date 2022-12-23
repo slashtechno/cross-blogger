@@ -51,7 +51,7 @@ jobs:
         files: |
           /home/runner/work/cross-blogger/binaries.zip 
           /home/runner/work/cross-blogger/builds/*
-    - name:
+    - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: binaries
@@ -71,3 +71,4 @@ jobs:
 
     # - name: Build
     #   run: go build -v ./main.go
+    
