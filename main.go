@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 slashtechno
+Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 
 */
 package main
