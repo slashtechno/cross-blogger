@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/alexflint/go-arg"
 	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -20,19 +22,24 @@ type PublishCmd struct {
 type GoogleOauthCmd struct {
 	ClientId     string `arg:"--client-id, env:CLIENT_ID" help:"Google OAuth client ID"`
 	ClientSecret string `arg:"--client-secret, env:CLIENT_SECRET" help:"Google OAuth client secret"`
+	RefreshToken string `arg:"--refresh-token, env:REFRESH_TOKEN" help:"Google OAuth refresh token"`
 }
 
 var args struct {
 	GoogleOauth *GoogleOauthCmd `arg:"subcommand:google-oauth"`
 	LogLevel    string          `arg:"--log-level, env:LOG_LEVEL" help:"\"debug\", \"info\", \"warning\", \"error\", or \"fatal\"" default:"info"`
-	LogColor    bool            `arg:"--log-color, env:LOG_COLOR" help:"Force colored logs" default:"true"`
+	LogColor    bool            `arg:"--log-color, env:LOG_COLOR" help:"Force colored logs" default:"false"`
 }
 
 var googleRefreshToken string
 
 func main() {
-	godotenv.Load(".env")	// Load the .env file
+	godotenv.Load(".env")
 	arg.MustParse(&args)
+	googleRefreshToken = args.GoogleOauth.RefreshToken
+
+	logrus.SetOutput(os.Stdout)
+	logrus.SetFormatter(&logrus.TextFormatter{PadLevelText: true, DisableQuote: true, ForceColors: args.LogColor, DisableColors: !args.LogColor})
 
 	switch {
 	case args.GoogleOauth != nil:
@@ -73,6 +80,37 @@ func storeRefreshToken() error { // Rename to getRefreshToken(), perhaps?
 	// May want to use filepath.Join() here
 	err = godotenv.Write(env, ".env")
 	return nil
+}
+
+func getAccessToken() (string, error) {
+	// Check if client_id and client_secret are set
+	message := "The following must be set"
+	if args.GoogleOauth.ClientId == "" {
+		message += "\n- client_id"
+	}
+	if args.GoogleOauth.ClientSecret == "" {
+		message += "\n- client_secret"
+	}
+	if message != "The following must be set in config.json" {
+		return "", errors.New(message)
+	}
+
+	// Check if there is a refresh token present
+	if googleRefreshToken == "" {
+		log.Println("No refresh token found")
+		storeRefreshToken()
+	}
+
+	// Get access token using the refresh token
+	url := "https://oauth2.googleapis.com/token?client_id=" + args.GoogleOauth.ClientId + "&client_secret=" + args.GoogleOauth.ClientSecret + "&refresh_token=" + googleRefreshToken + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=refresh_token"
+	// Send a POST request to the URL with no authorization headers
+	resultBody, err := request(url, "POST", "")
+	if err != nil {
+		return "", err
+	}
+	// Get the authorization token
+	accessToken := gjson.Get(resultBody, "access_token").String()
+	return accessToken, nil
 }
 
 func singleLineInput() (string, error) {
