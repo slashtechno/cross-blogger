@@ -2,10 +2,8 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -16,17 +14,30 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type BloggerCmd struct {
+	ClientId     string `arg:"--client-id, env:CLIENT_ID, required" help:"Google OAuth client ID"`
+	ClientSecret string `arg:"--client-secret, env:CLIENT_SECRET, required" help:"Google OAuth client secret"`
+	RefreshToken string `arg:"--refresh-token, env:REFRESH_TOKEN" help:"Google OAuth refresh token"`
+
+	BlogAddress string `arg:"positional, required" help:"Blog address to publish to"`
+}
+
 type PublishCmd struct {
+	// Source          string `arg:"-s,--source" help:"What source to use\nAvailable sources: blogger, dev.to, markdown, html\ndev.to, markdown, and html work with source-specifier"`
+	Blogger      *BloggerCmd       `arg:"subcommand:blogger" help:"Publish to Blogger"`
+	Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailable destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
+	Title        string            `arg:"-t,--title" help:"Specify custom title instead of using the default"`
 }
 
 type GoogleOauthCmd struct {
-	ClientId     string `arg:"--client-id, env:CLIENT_ID" help:"Google OAuth client ID"`
-	ClientSecret string `arg:"--client-secret, env:CLIENT_SECRET" help:"Google OAuth client secret"`
+	ClientId     string `arg:"--client-id, env:CLIENT_ID, required" help:"Google OAuth client ID"`
+	ClientSecret string `arg:"--client-secret, env:CLIENT_SECRET, required" help:"Google OAuth client secret"`
 	RefreshToken string `arg:"--refresh-token, env:REFRESH_TOKEN" help:"Google OAuth refresh token"`
 }
 
 var args struct {
-	GoogleOauth *GoogleOauthCmd `arg:"subcommand:google-oauth"`
+	GoogleOauth *GoogleOauthCmd `arg:"subcommand:google-oauth" help:"Store Google OAuth refresh token"`
+	Publish     *PublishCmd     `arg:"subcommand:publish" help:"Publish to a destination"`
 	LogLevel    string          `arg:"--log-level, env:LOG_LEVEL" help:"\"debug\", \"info\", \"warning\", \"error\", or \"fatal\"" default:"info"`
 	LogColor    bool            `arg:"--log-color, env:LOG_COLOR" help:"Force colored logs" default:"false"`
 }
@@ -43,21 +54,14 @@ func main() {
 
 	switch {
 	case args.GoogleOauth != nil:
-		// googleOauth()
+		_, err := getAccessToken()
+		if err != nil {
+			logrus.Fatal(err)
+		}
 	}
 }
 
 func storeRefreshToken() error { // Rename to getRefreshToken(), perhaps?
-	message := "The following must be set"
-	if args.GoogleOauth.ClientId == "" {
-		message += "\n- client_id"
-	}
-	if args.GoogleOauth.ClientSecret == "" {
-		message += "\n- client_secret"
-	}
-	if message != "The following must be set in config.json" {
-		return errors.New(message)
-	}
 
 	// Get the authorization code from the user
 	fmt.Println("Please go to the following link in your browser:")
@@ -79,25 +83,17 @@ func storeRefreshToken() error { // Rename to getRefreshToken(), perhaps?
 	env, _ := godotenv.Unmarshal("REFRESH_TOKEN=" + googleRefreshToken)
 	// May want to use filepath.Join() here
 	err = godotenv.Write(env, ".env")
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func getAccessToken() (string, error) {
-	// Check if client_id and client_secret are set
-	message := "The following must be set"
-	if args.GoogleOauth.ClientId == "" {
-		message += "\n- client_id"
-	}
-	if args.GoogleOauth.ClientSecret == "" {
-		message += "\n- client_secret"
-	}
-	if message != "The following must be set in config.json" {
-		return "", errors.New(message)
-	}
 
 	// Check if there is a refresh token present
 	if googleRefreshToken == "" {
-		log.Println("No refresh token found")
+		logrus.Print("No refresh token found. Please input the following information to get a refresh token.\n")
 		storeRefreshToken()
 	}
 
@@ -127,7 +123,9 @@ func singleLineInput() (string, error) {
 func request(url string, requestType string, bearerAuth string) (string, error) {
 	// Send a request to the URL, with the URL which was passed to the function
 	req, err := http.NewRequest(requestType, url, nil)
-
+	if err != nil {
+		return "", err
+	}
 	// If the bearerAuth parameter is true, set the Authorization header with an access token
 	if bearerAuth != "" {
 		req.Header.Add("Authorization", "Bearer "+bearerAuth)
@@ -140,5 +138,23 @@ func request(url string, requestType string, bearerAuth string) (string, error) 
 	// Convert the result body to a string and then return it
 	defer res.Body.Close()
 	resultBodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
 	return string(resultBodyBytes), nil
+}
+
+func getBlogID() (string, error) {
+	url := "https://www.googleapis.com/blogger/v3/blogs/byurl?url=" + args.Publish.Blogger.BlogAddress + "%2F"
+	// Send a GET request to the URL with bearer authorization
+	accessToken, err := getAccessToken()
+	if err != nil {
+		return "", err
+	}
+	resultBody, err := request(url, "GET", accessToken)
+	if err != nil {
+		return "", err
+	}
+	// Get the blog ID
+	return gjson.Get(resultBody, "id").String(), nil
 }
