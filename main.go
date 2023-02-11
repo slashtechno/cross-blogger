@@ -258,7 +258,10 @@ func request(url string, requestType string, bearerAuth string, payloadMap map[s
 		return "", err
 	}
 	// Convert the result body to a string and then return it
-	defer res.Body.Close()
+	err = res.Body.Close()
+	if err != nil {
+		return "", err
+	}
 	resultBodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
