@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -25,7 +26,7 @@ type BloggerCmd struct {
 
 type PublishCmd struct {
 	Blogger *BloggerCmd `arg:"subcommand:blogger" help:"Publish to Blogger"`
-	// Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailable destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
+	// Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailabl/e destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
 	Title string `arg:"-t,--title" help:"Specify custom title instead of using the default"`
 }
 
@@ -85,6 +86,37 @@ func main() {
 	}
 }
 
+func publishPost(title string, html string, markdown string, destinations map[string]string) error {
+	for destination, destinationSpecifier := range destinations {
+		switch destination {
+		case "blogger":
+			// Get the blog ID
+			blogId, err := getBlogId(destinationSpecifier)
+			if err != nil {
+				return err
+			}
+
+			// Publish to Blogger
+			logrus.Info("Publishing to Blogger")
+			url := "https://www.googleapis.com/blogger/v3/blogs/" + destinationSpecifier + "/posts/"
+			payloadMap := map[string]interface{}{
+				"kind": "blogger#post",
+				"blog": map[string]string{
+					"id": blogId,
+				},
+				"title":   title,
+				"content": html,
+			}
+			result, err := request("POST", url, "", payloadMap)
+			if err != nil {
+				return err
+			}
+			logrus.Debugf("Blogger response: %s", result)
+
+		}
+	}
+	return nil
+}
 func storeRefreshToken() (string, error) { // Rename to getRefreshToken(), perhaps?
 	err := checkNeededFlags(map[string]string{"clientId": args.ClientId, "clientSecret": args.ClientSecret})
 	if err != nil {
@@ -109,7 +141,7 @@ func storeRefreshToken() (string, error) { // Rename to getRefreshToken(), perha
 	// Get refresh token using the authorization code given by the user
 	url = "https://oauth2.googleapis.com/token?client_id=" + args.ClientId + "&client_secret=" + args.ClientSecret + "&code=" + authorizationCode + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=authorization_code"
 	// Send a POST request to the URL with no authorization headers
-	resultBody, err := request(url, "POST", "")
+	resultBody, err := request(url, "POST", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -160,12 +192,18 @@ func getAccessToken() (string, error) {
 	// Get access token using the refresh token
 	url := "https://oauth2.googleapis.com/token?client_id=" + args.ClientId + "&client_secret=" + args.ClientSecret + "&refresh_token=" + googleRefreshToken + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=refresh_token"
 	// Send a POST request to the URL with no authorization headers
-	resultBody, err := request(url, "POST", "")
+	resultBody, err := request(url, "POST", "", nil)
 	if err != nil {
 		return "", err
 	}
 	// Get the authorization token
 	accessToken := gjson.Get(resultBody, "access_token").String()
+	if accessToken == "" {
+		return "", errors.New("no access token found")
+	} else {
+		logrus.Debugf("Access token: %s", accessToken)
+
+	}
 	return accessToken, nil
 }
 
@@ -180,12 +218,26 @@ func singleLineInput() (string, error) {
 	return input, nil
 }
 
-func request(url string, requestType string, bearerAuth string) (string, error) {
+func request(url string, requestType string, bearerAuth string, payloadMap map[string]interface{}) (string, error) {
 	// Send a request to the URL, with the URL which was passed to the function
-	req, err := http.NewRequest(requestType, url, nil)
-	if err != nil {
-		return "", err
+	var req *http.Request
+	var err error
+	// If payloadMap is nil, don't send a payload
+	if payloadMap == nil {
+		req, err = http.NewRequest(requestType, url, nil)
+	} else {
+		logrus.Debugf("Payload map: %v", payloadMap)
+		payloadBytes, err := json.Marshal(payloadMap)
+		if err != nil {
+			return "", err
+		}
+		payload := strings.NewReader(string(payloadBytes))
+		req, err = http.NewRequest("POST", url, payload)
+		if err != nil {
+			return "", err
+		}
 	}
+
 	// If the bearerAuth parameter is true, set the Authorization header with an access token
 	if bearerAuth != "" {
 		req.Header.Add("Authorization", "Bearer "+bearerAuth)
@@ -201,27 +253,35 @@ func request(url string, requestType string, bearerAuth string) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	// Debug the status code
+	// logrus.Debugf("Sending %s request to %s with payload %v, bearer authorization %s. Got status code %d", requestType, url, payloadMap, bearerAuth, res.StatusCode)
 	return string(resultBodyBytes), nil
 }
 
-func getBlogID(blogAddress string) (string, error) {
-	url := "https://www.googleapis.com/blogger/v3/blogs/byurl?url=" + blogAddress + "%2F"
+func getBlogId(blogAddress string) (string, error) {
 	// Send a GET request to the URL with bearer authorization
 	accessToken, err := getAccessToken()
+	logrus.Debugf("Blog address: %s", blogAddress)
+	url := "https://www.googleapis.com/blogger/v3/blogs/byurl?url=https%3A%2F%2F" + blogAddress
 	if err != nil {
 		return "", err
 	}
-	resultBody, err := request(url, "GET", accessToken)
+	resultBody, err := request(url, "GET", accessToken, nil)
 	if err != nil {
 		return "", err
 	}
+	// logrus.Debugf("Result body: %s", resultBody)
 	// Get the blog ID
-	return gjson.Get(resultBody, "id").String(), nil
+	id := gjson.Get(resultBody, "id").String()
+	if id == "" {
+		return "", errors.New("no blog ID found")
+	}
+	return id, nil
 }
 
 func getBloggerPost(blogAddress string, postAddress string) (string, string, string, error) {
 	path := strings.Replace(postAddress, blogAddress, "", 1)
-	blogID, err := getBlogID(blogAddress)
+	blogID, err := getBlogId(blogAddress)
 	logrus.Debugf("Blog ID: %s | Path: %s", blogID, path)
 	if err != nil {
 		return "", "", "", err
@@ -230,15 +290,19 @@ func getBloggerPost(blogAddress string, postAddress string) (string, string, str
 	if err != nil {
 		return "", "", "", err
 	}
-
-	url := "https://www.googleapis.com/blogger/v3/blogs/" + blogID + "/posts/bypath?path=/" + path
-	resultBody, err := request(url, "GET", accessToken)
+	// https://www.googleapis.com/blogger/v3/blogs/[BLOG_ID]/posts/bypath?path=/{YEAR}/{MONTH}/{POST}.html
+	url := "https://www.googleapis.com/blogger/v3/blogs/" + blogID + "/posts/bypath?path=" + path
+	resultBody, err := request(url, "GET", accessToken, nil)
 	if err != nil {
 		return "", "", "", err
 	}
 	html := gjson.Get(resultBody, "content").String()
 	title := gjson.Get(resultBody, "title").String()
 	markdown, err := htmltomd.NewConverter("", true, nil).ConvertString(html)
+	if title == "" && html == "" && markdown == "" {
+		logrus.Debug(url)
+		return "", "", "", errors.New("no post found")
+	}
 	if err != nil {
 		return "", "", "", err
 	}
