@@ -25,9 +25,9 @@ type BloggerCmd struct {
 }
 
 type PublishCmd struct {
-	Blogger *BloggerCmd `arg:"subcommand:blogger" help:"Publish to Blogger"`
-	// Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailabl/e destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
-	Title string `arg:"-t,--title" help:"Specify custom title instead of using the default"`
+	Blogger      *BloggerCmd       `arg:"subcommand:blogger" help:"Publish to Blogger"`
+	Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailabl/e destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
+	Title        string            `arg:"-t,--title" help:"Specify custom title instead of using the default"`
 }
 
 type GoogleOauthCmd struct {
@@ -78,7 +78,11 @@ func main() {
 		switch {
 		case args.Publish.Blogger != nil:
 			title, html, markdown, err := getBloggerPost(args.Publish.Blogger.BlogAddress, args.Publish.Blogger.PostAddress)
-			logrus.Debugf("Title: %s | HTML: %s | Markdown: %s", title, html, markdown)
+			if err != nil {
+				logrus.Fatal(err)
+			}
+			// logrus.Debugf("Title: %s | HTML: %s | Markdown: %s", title, html, markdown)
+			err = publishPost(title, html, markdown, args.Publish.Destinations)
 			if err != nil {
 				logrus.Fatal(err)
 			}
@@ -98,7 +102,7 @@ func publishPost(title string, html string, markdown string, destinations map[st
 
 			// Publish to Blogger
 			logrus.Info("Publishing to Blogger")
-			url := "https://www.googleapis.com/blogger/v3/blogs/" + destinationSpecifier + "/posts/"
+			url := "https://www.googleapis.com/blogger/v3/blogs/" + blogId + "/posts/"
 			payloadMap := map[string]interface{}{
 				"kind": "blogger#post",
 				"blog": map[string]string{
@@ -107,11 +111,14 @@ func publishPost(title string, html string, markdown string, destinations map[st
 				"title":   title,
 				"content": html,
 			}
-			result, err := request("POST", url, "", payloadMap)
+			accessToken, err := getAccessToken()
 			if err != nil {
 				return err
 			}
-			logrus.Debugf("Blogger response: %s", result)
+			_, err = request(url, "POST", accessToken, payloadMap)
+			if err != nil {
+				return err
+			}
 
 		}
 	}
@@ -225,14 +232,17 @@ func request(url string, requestType string, bearerAuth string, payloadMap map[s
 	// If payloadMap is nil, don't send a payload
 	if payloadMap == nil {
 		req, err = http.NewRequest(requestType, url, nil)
+		if err != nil {
+			return "", err
+		}
 	} else {
-		logrus.Debugf("Payload map: %v", payloadMap)
+		// logrus.Debugf("Payload map: %v", payloadMap)
 		payloadBytes, err := json.Marshal(payloadMap)
 		if err != nil {
 			return "", err
 		}
 		payload := strings.NewReader(string(payloadBytes))
-		req, err = http.NewRequest("POST", url, payload)
+		req, err = http.NewRequest(requestType, url, payload)
 		if err != nil {
 			return "", err
 		}
