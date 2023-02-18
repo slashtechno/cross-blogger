@@ -8,10 +8,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	htmltomd "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/alexflint/go-arg"
+	mdlib "github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/parser"
 	"github.com/imdario/mergo"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -20,14 +23,20 @@ import (
 )
 
 type BloggerCmd struct {
-	BlogAddress string `arg:"positional, required" help:"Blog address to publish to"`
-	PostAddress string `arg:"positional, required" help:"Post address to get content from"`
+	BlogAddress string `arg:"positional, required" help:"Blog address to get content from"`
+	PostAddress string `arg:"positional, required" help:"Post slug to get content from"`
+}
+
+type FileCmd struct {
+	Filepath string `arg:"positional, required" help:"Filepath to get content from"`
 }
 
 type PublishCmd struct {
-	Blogger      *BloggerCmd       `arg:"subcommand:blogger" help:"Publish to Blogger"`
-	Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailabl/e destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
+	File         *FileCmd          `arg:"subcommand:file" help:"Publish from a file"`
+	Blogger      *BloggerCmd       `arg:"subcommand:blogger" help:"Publish from Blogger"`
+	Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailable destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
 	Title        string            `arg:"-t,--title" help:"Specify custom title instead of using the default"`
+	DryRun       bool              `arg:"-d,--dry-run" help:"Don't actually publish"`
 }
 
 type GoogleOauthCmd struct {
@@ -56,6 +65,8 @@ func main() {
 	logrus.SetFormatter(&logrus.TextFormatter{PadLevelText: true, DisableQuote: true, ForceColors: args.LogColor, DisableColors: !args.LogColor})
 	if args.LogLevel == "debug" {
 		logrus.SetLevel(logrus.DebugLevel)
+		// Enable line numbers in debug logs
+		logrus.SetReportCaller(true)
 	} else if args.LogLevel == "info" {
 		logrus.SetLevel(logrus.InfoLevel)
 	} else if args.LogLevel == "warning" {
@@ -75,17 +86,34 @@ func main() {
 			logrus.Fatal(err)
 		}
 	case args.Publish != nil:
+		var (
+			title    string
+			html     string
+			markdown string
+			err      error
+		)
 		switch {
 		case args.Publish.Blogger != nil:
-			title, html, markdown, err := getBloggerPost(args.Publish.Blogger.BlogAddress, args.Publish.Blogger.PostAddress)
+			title, html, markdown, err = getBloggerPost(args.Publish.Blogger.BlogAddress, args.Publish.Blogger.PostAddress)
 			if err != nil {
 				logrus.Fatal(err)
 			}
-			// logrus.Debugf("Title: %s | HTML: %s | Markdown: %s", title, html, markdown)
+		case args.Publish.File != nil:
+			title, html, markdown, err = getFilePost(args.Publish.File.Filepath, args.Publish.Title)
+			if err != nil {
+				logrus.Fatal(err)
+			}
+		default:
+			// Could add an interactive mode here for user-friendliness
+			logrus.Fatal("No subcommand specified")
+		}
+		if args.Publish.DryRun {
+			logrus.Debugf("Title: %s | HTML: %s | Markdown: %s", title, html, markdown)
+		} else {
 			err = publishPost(title, html, markdown, args.Publish.Destinations)
-			if err != nil {
-				logrus.Fatal(err)
-			}
+		}
+		if err != nil {
+			logrus.Fatal(err)
 		}
 	}
 }
@@ -99,7 +127,6 @@ func publishPost(title string, html string, markdown string, destinations map[st
 			if err != nil {
 				return err
 			}
-
 			// Publish to Blogger
 			logrus.Info("Publishing to Blogger")
 			url := "https://www.googleapis.com/blogger/v3/blogs/" + blogId + "/posts/"
@@ -119,6 +146,9 @@ func publishPost(title string, html string, markdown string, destinations map[st
 			if err != nil {
 				return err
 			}
+			// Put file stuff here
+
+			// Put dev.to stuff here
 
 		}
 	}
@@ -258,11 +288,11 @@ func request(url string, requestType string, bearerAuth string, payloadMap map[s
 		return "", err
 	}
 	// Convert the result body to a string and then return it
-	err = res.Body.Close()
+	resultBodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err
 	}
-	resultBodyBytes, err := io.ReadAll(res.Body)
+	err = res.Body.Close()
 	if err != nil {
 		return "", err
 	}
@@ -322,6 +352,82 @@ func getBloggerPost(blogAddress string, postAddress string) (string, string, str
 	return title, html, markdown, nil
 }
 
+func getFilePost(pathToFile string, defaultTitle string) (string, string, string, error) {
+	// If the file path is empty, ask for it (might be a good idea to remove this)
+	if pathToFile == "" {
+		fmt.Println("Enter the path to the file")
+		var err error
+		pathToFile, err = singleLineInput()
+		if err != nil {
+			return "", "", "", err
+		}
+	}
+
+	cleanPathToFile := filepath.Clean(pathToFile)
+
+	// Check if the file exists
+	_, err := os.Stat(cleanPathToFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", "", "", errors.New("file does not exist")
+	}
+
+	// Read the file
+	fileBytes, err := os.ReadFile(cleanPathToFile)
+	if err != nil {
+		return "", "", "", err
+	}
+	fileContent := string(fileBytes)
+	logrus.Debug("The file was read successfully")
+	var (
+		title    string
+		html     string
+		markdown string
+	)
+
+	// Check file extension
+	fileExtension := filepath.Ext(pathToFile)
+	switch fileExtension {
+	case ".html", ".htm":
+		// Set HTML to the file content
+		html = fileContent
+		// Convert to Markdown
+		markdown, err = htmltomd.NewConverter("", true, nil).ConvertString(fileContent)
+		if err != nil {
+			return "", "", "", err
+		}
+
+	case ".md", ".markdown":
+		// Set Markdown to the file content
+		markdown = fileContent
+		// Convert to HTML
+		extensions := parser.CommonExtensions | parser.AutoHeadingIDs
+		parser := parser.NewWithExtensions(extensions)
+		html = string(mdlib.ToHTML([]byte(fileContent), parser, nil))
+
+	case ".txt":
+		// Not sure if plain text should be supported but it can easily be removed later
+
+		// Set Markdown to the file content
+		markdown = fileContent
+		// Convert to HTML
+		extensions := parser.CommonExtensions | parser.AutoHeadingIDs
+		parser := parser.NewWithExtensions(extensions)
+		html = string(mdlib.ToHTML([]byte(fileContent), parser, nil))
+	default:
+		return "", "", "", errors.New("file extension not supported")
+	}
+	if defaultTitle != "" {
+		title = defaultTitle
+	} else {
+		// Get the file name without the extension
+		fileName := filepath.Base(pathToFile)
+		fileNameWithoutExtension := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+		// Replace underscores with spaces (Might be a good idea to make this optional)
+		title = strings.ReplaceAll(fileNameWithoutExtension, "_", " ")
+	}
+	return title, html, markdown, nil
+}
+
 func checkNeededFlags(flags map[string]string) error {
 	message := "The following must be set"
 	for name, value := range flags {
@@ -334,3 +440,5 @@ func checkNeededFlags(flags map[string]string) error {
 	}
 	return nil
 }
+
+// Check if the file exists -> Check file extension -> Convert to the other formats -> Check if user-defined title is set -> If user-defined title is not set, use the file name as the title -> Return the title, HTML, and Markdown and hopefully no errors.
