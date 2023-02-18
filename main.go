@@ -32,9 +32,13 @@ type FileCmd struct {
 }
 
 type PublishCmd struct {
-	File         *FileCmd          `arg:"subcommand:file" help:"Publish from a file"`
-	Blogger      *BloggerCmd       `arg:"subcommand:blogger" help:"Publish from Blogger"`
-	Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailable destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"` // TODO: Make this a map
+	File    *FileCmd    `arg:"subcommand:file" help:"Publish from a file"`
+	Blogger *BloggerCmd `arg:"subcommand:blogger" help:"Publish from Blogger"`
+	// Perhaps instead of needing both a key and a value for destinations, parse a single value
+	// For example, check if it's a file, and if so, check the file ending to determine the type
+	// Maybe check if it contains blogger.com or dev.to to determine the type
+	// Of course, an override would be nice
+	Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailable destinations: blogger, dev.to, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"`
 	Title        string            `arg:"-t,--title" help:"Specify custom title instead of using the default"`
 	DryRun       bool              `arg:"-d,--dry-run" help:"Don't actually publish"`
 }
@@ -146,8 +150,24 @@ func publishPost(title string, html string, markdown string, destinations map[st
 			if err != nil {
 				return err
 			}
-			// Put file stuff here
-
+		case "markdown":
+			logrus.Info("Publishing to Markdown")
+			cleanPathToFile := filepath.Clean(destinationSpecifier)
+			// Open the file in write-only mode (600) with append and create
+			file, err := os.OpenFile(cleanPathToFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+			if err != nil {
+				return err
+			}
+			// Write markdown to file
+			_, err = file.WriteString(markdown)
+			if err != nil {
+				return err
+			}
+			// Close the file
+			err = file.Close()
+			if err != nil {
+				return err
+			}
 			// Put dev.to stuff here
 
 		}
