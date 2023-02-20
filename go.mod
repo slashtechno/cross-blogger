@@ -21,7 +21,7 @@ require (
 
 require (
 	github.com/alexflint/go-scalar v1.1.0 // indirect
-	github.com/joho/godotenv v1.5.0
+	github.com/joho/godotenv v1.5.1
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 )
