@@ -52,8 +52,8 @@ var args struct {
 	Publish     *PublishCmd     `arg:"subcommand:publish" help:"Publish to a destination"`
 
 	// Google OAuth flags
-	ClientId     string `arg:"--client-id, env:CLIENT_ID, required" help:"Google OAuth client ID"`
-	ClientSecret string `arg:"--client-secret, env:CLIENT_SECRET, required" help:"Google OAuth client secret"`
+	ClientId     string `arg:"--client-id, env:CLIENT_ID" help:"Google OAuth client ID"`
+	ClientSecret string `arg:"--client-secret, env:CLIENT_SECRET" help:"Google OAuth client secret"`
 	RefreshToken string `arg:"--refresh-token, env:REFRESH_TOKEN" help:"Google OAuth refresh token" default:""`
 
 	// Misc flags
@@ -69,7 +69,7 @@ func main() {
 	logrus.SetFormatter(&logrus.TextFormatter{PadLevelText: true, DisableQuote: true, ForceColors: args.LogColor, DisableColors: !args.LogColor})
 	if args.LogLevel == "debug" {
 		logrus.SetLevel(logrus.DebugLevel)
-		// Enable line numbers in debug logs
+		// Enable line numbers in debug logs - Doesn't help too much since a fatal error still needs to be debugged
 		logrus.SetReportCaller(true)
 	} else if args.LogLevel == "info" {
 		logrus.SetLevel(logrus.InfoLevel)
