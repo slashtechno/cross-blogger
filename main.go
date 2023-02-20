@@ -146,7 +146,7 @@ func publishPost(title string, html string, markdown string, destinations map[st
 			if err != nil {
 				return err
 			}
-			_, err = request(url, "POST", accessToken, payloadMap)
+			_, err = request(url, "POST", map[string]string{"Authorization": "Bearer " + accessToken}, payloadMap)
 			if err != nil {
 				return err
 			}
@@ -198,7 +198,7 @@ func storeRefreshToken() (string, error) { // Rename to getRefreshToken(), perha
 	// Get refresh token using the authorization code given by the user
 	url = "https://oauth2.googleapis.com/token?client_id=" + args.ClientId + "&client_secret=" + args.ClientSecret + "&code=" + authorizationCode + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=authorization_code"
 	// Send a POST request to the URL with no authorization headers
-	resultBody, err := request(url, "POST", "", nil)
+	resultBody, err := request(url, "POST", nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -249,7 +249,7 @@ func getAccessToken() (string, error) {
 	// Get access token using the refresh token
 	url := "https://oauth2.googleapis.com/token?client_id=" + args.ClientId + "&client_secret=" + args.ClientSecret + "&refresh_token=" + googleRefreshToken + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=refresh_token"
 	// Send a POST request to the URL with no authorization headers
-	resultBody, err := request(url, "POST", "", nil)
+	resultBody, err := request(url, "POST", nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -275,7 +275,7 @@ func singleLineInput() (string, error) {
 	return input, nil
 }
 
-func request(url string, requestType string, bearerAuth string, payloadMap map[string]interface{}) (string, error) {
+func request(url string, requestType string, headers map[string]string, payloadMap map[string]interface{}) (string, error) {
 	// Send a request to the URL, with the URL which was passed to the function
 	var req *http.Request
 	var err error
@@ -298,9 +298,9 @@ func request(url string, requestType string, bearerAuth string, payloadMap map[s
 		}
 	}
 
-	// If the bearerAuth parameter is true, set the Authorization header with an access token
-	if bearerAuth != "" {
-		req.Header.Add("Authorization", "Bearer "+bearerAuth)
+	// Allow headers to be added
+	for key, value := range headers {
+		req.Header.Add(key, value)
 	}
 	// Make the actual request
 	res, err := http.DefaultClient.Do(req)
@@ -329,7 +329,7 @@ func getBlogId(blogAddress string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	resultBody, err := request(url, "GET", accessToken, nil)
+	resultBody, err := request(url, "GET", map[string]string{"Authorization": "Bearer " + accessToken}, nil)
 	if err != nil {
 		return "", err
 	}
@@ -355,7 +355,7 @@ func getBloggerPost(blogAddress string, postAddress string) (string, string, str
 	}
 	// https://www.googleapis.com/blogger/v3/blogs/[BLOG_ID]/posts/bypath?path=/{YEAR}/{MONTH}/{POST}.html
 	url := "https://www.googleapis.com/blogger/v3/blogs/" + blogID + "/posts/bypath?path=" + path
-	resultBody, err := request(url, "GET", accessToken, nil)
+	resultBody, err := request(url, "GET", map[string]string{"Authorization": "Bearer " + accessToken}, nil)
 	if err != nil {
 		return "", "", "", err
 	}
