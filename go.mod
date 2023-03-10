@@ -3,7 +3,7 @@ module github.com/slashtechno/cross-blogger
 go 1.19
 
 require (
-	github.com/JohannesKaufmann/html-to-markdown v1.3.6
+	github.com/JohannesKaufmann/html-to-markdown v1.3.7
 	github.com/alexflint/go-arg v1.4.3
 	github.com/gomarkdown/markdown v0.0.0-20221013030248-663e2500819c
 	github.com/imdario/mergo v0.3.13
@@ -13,10 +13,10 @@ require (
 )
 
 require (
-	github.com/PuerkitoBio/goquery v1.8.0 // indirect
+	github.com/PuerkitoBio/goquery v1.8.1 // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
 )
 
 require (
