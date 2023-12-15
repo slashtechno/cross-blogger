@@ -25,7 +25,7 @@ jobs:
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
         run: 'go build -v -o cross-blogger__${{ matrix.os }}.exe'
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: binaries
           # path: 'cross-blogger__${{ matrix.os }}'
