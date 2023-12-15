@@ -54,7 +54,7 @@ jobs:
           /home/runner/work/cross-blogger/binaries.zip 
           /home/runner/work/cross-blogger/builds/*
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: binaries
         path: /home/runner/work/cross-blogger/builds/*
