@@ -1,3 +1,4 @@
+// When running, use `go run .`
 package main
 
 import (
@@ -22,74 +23,35 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type BloggerCmd struct {
-	BlogAddress string `arg:"positional, required" help:"Blog address to get content from"`
-	PostAddress string `arg:"positional, required" help:"Post slug to get content from"`
-}
-
-type FileCmd struct {
-	Filepath string `arg:"positional, required" help:"Filepath to get content from"`
-}
-
-type PublishCmd struct {
-	File    *FileCmd    `arg:"subcommand:file" help:"Publish from a file"`
-	Blogger *BloggerCmd `arg:"subcommand:blogger" help:"Publish from Blogger"`
-	// Perhaps instead of needing both a key and a value for destinations, parse a single value
-	// For example, check if it's a file, and if so, check the file ending to determine the type
-	// Maybe check if it contains blogger.com
-	// Of course, an override would be nice
-	Destinations map[string]string `arg:"--destinations, required" help:"Destination(s) to publish to\nAvailable destinations: blogger, markdown, html\nMake sure to specify with <platform>=<Filepath, blog address, etc>"`
-	Title        string            `arg:"-t,--title" help:"Specify custom title instead of using the default"`
-	DryRun       bool              `arg:"-d,--dry-run" help:"Don't actually publish"`
-}
-
-type GoogleOauthCmd struct {
-}
-
-var args struct {
-	// Subcommands
-	GoogleOauth *GoogleOauthCmd `arg:"subcommand:google-oauth" help:"Store Google OAuth refresh token"`
-	Publish     *PublishCmd     `arg:"subcommand:publish" help:"Publish to a destination"`
-
-	// Google OAuth flags
-	ClientId     string `arg:"--client-id, env:CLIENT_ID" help:"Google OAuth client ID"`
-	ClientSecret string `arg:"--client-secret, env:CLIENT_SECRET" help:"Google OAuth client secret"`
-	RefreshToken string `arg:"--refresh-token, env:REFRESH_TOKEN" help:"Google OAuth refresh token" default:""`
-
-	// Misc flags
-	LogLevel string `arg:"--log-level, env:LOG_LEVEL" help:"\"debug\", \"info\", \"warning\", \"error\", or \"fatal\"" default:"info"`
-	LogColor bool   `arg:"--log-color, env:LOG_COLOR" help:"Force colored logs" default:"false"`
-}
-
 func main() {
 	godotenv.Load(".env")
-	arg.MustParse(&args)
+	arg.MustParse(&Args)
 
 	logrus.SetOutput(os.Stdout)
-	logrus.SetFormatter(&logrus.TextFormatter{PadLevelText: true, DisableQuote: true, ForceColors: args.LogColor, DisableColors: !args.LogColor})
-	if args.LogLevel == "debug" {
+	logrus.SetFormatter(&logrus.TextFormatter{PadLevelText: true, DisableQuote: true, ForceColors: Args.LogColor, DisableColors: !Args.LogColor})
+	if Args.LogLevel == "debug" {
 		logrus.SetLevel(logrus.DebugLevel)
 		// Enable line numbers in debug logs - Doesn't help too much since a fatal error still needs to be debugged
 		logrus.SetReportCaller(true)
-	} else if args.LogLevel == "info" {
+	} else if Args.LogLevel == "info" {
 		logrus.SetLevel(logrus.InfoLevel)
-	} else if args.LogLevel == "warning" {
+	} else if Args.LogLevel == "warning" {
 		logrus.SetLevel(logrus.WarnLevel)
-	} else if args.LogLevel == "error" {
+	} else if Args.LogLevel == "error" {
 		logrus.SetLevel(logrus.ErrorLevel)
-	} else if args.LogLevel == "fatal" {
+	} else if Args.LogLevel == "fatal" {
 		logrus.SetLevel(logrus.FatalLevel)
 	} else {
 		logrus.SetLevel(logrus.InfoLevel)
 	}
 
 	switch {
-	case args.GoogleOauth != nil:
+	case Args.GoogleOauth != nil:
 		_, err := getAccessToken()
 		if err != nil {
 			logrus.Fatal(err)
 		}
-	case args.Publish != nil:
+	case Args.Publish != nil:
 		var (
 			title    string
 			html     string
@@ -97,13 +59,13 @@ func main() {
 			err      error
 		)
 		switch {
-		case args.Publish.Blogger != nil:
-			title, html, markdown, err = getBloggerPost(args.Publish.Blogger.BlogAddress, args.Publish.Blogger.PostAddress)
+		case Args.Publish.Blogger != nil:
+			title, html, markdown, err = getBloggerPost(Args.Publish.Blogger.BlogAddress, Args.Publish.Blogger.PostAddress)
 			if err != nil {
 				logrus.Fatal(err)
 			}
-		case args.Publish.File != nil:
-			title, html, markdown, err = getFilePost(args.Publish.File.Filepath, args.Publish.Title)
+		case Args.Publish.File != nil:
+			title, html, markdown, err = getFilePost(Args.Publish.File.Filepath, Args.Publish.Title)
 			if err != nil {
 				logrus.Fatal(err)
 			}
@@ -111,10 +73,10 @@ func main() {
 			// Could add an interactive mode here for user-friendliness
 			logrus.Fatal("No subcommand specified")
 		}
-		if args.Publish.DryRun {
+		if Args.Publish.DryRun {
 			logrus.Debugf("Title: %s | HTML: %s | Markdown: %s", title, html, markdown)
 		} else {
-			err = publishPost(title, html, markdown, args.Publish.Destinations)
+			err = publishPost(title, html, markdown, Args.Publish.Destinations)
 		}
 		if err != nil {
 			logrus.Fatal(err)
@@ -174,12 +136,12 @@ func publishPost(title string, html string, markdown string, destinations map[st
 	return nil
 }
 func storeRefreshToken() (string, error) { // Rename to getRefreshToken(), perhaps?
-	err := checkNeededFlags(map[string]string{"clientId": args.ClientId, "clientSecret": args.ClientSecret})
+	err := checkNeededFlags(map[string]string{"clientId": Args.ClientId, "clientSecret": Args.ClientSecret})
 	if err != nil {
 		return "", err
 	}
 	// Get the authorization code from the user
-	url := "https://accounts.google.com/o/oauth2/v2/auth?client_id=" + args.ClientId + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fblogger&response_type=code&access_type=offline&prompt=consent"
+	url := "https://accounts.google.com/o/oauth2/v2/auth?client_id=" + Args.ClientId + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fblogger&response_type=code&access_type=offline&prompt=consent"
 	// Open the URL in the default browser
 	err = open.Run(url)
 	fmt.Println("If the link didn't open, please manually go to the following link in your browser:")
@@ -195,7 +157,7 @@ func storeRefreshToken() (string, error) { // Rename to getRefreshToken(), perha
 	}
 
 	// Get refresh token using the authorization code given by the user
-	url = "https://oauth2.googleapis.com/token?client_id=" + args.ClientId + "&client_secret=" + args.ClientSecret + "&code=" + authorizationCode + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=authorization_code"
+	url = "https://oauth2.googleapis.com/token?client_id=" + Args.ClientId + "&client_secret=" + Args.ClientSecret + "&code=" + authorizationCode + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=authorization_code"
 	// Send a POST request to the URL with no authorization headers
 	resultBody, err := request(url, "POST", "", nil)
 	if err != nil {
@@ -228,25 +190,25 @@ func storeRefreshToken() (string, error) { // Rename to getRefreshToken(), perha
 }
 
 func getAccessToken() (string, error) {
-	err := checkNeededFlags(map[string]string{"clientId": args.ClientId, "clientSecret": args.ClientSecret})
+	err := checkNeededFlags(map[string]string{"clientId": Args.ClientId, "clientSecret": Args.ClientSecret})
 	if err != nil {
 		return "", err
 	}
 	var googleRefreshToken string
 	// Check if there is a refresh token present
-	if args.RefreshToken == "" {
+	if Args.RefreshToken == "" {
 		logrus.Print("No refresh token found. Please input the following information to get a refresh token.\n")
 		googleRefreshToken, err = storeRefreshToken()
 		if err != nil {
 			return "", err
 		}
 	} else {
-		googleRefreshToken = args.RefreshToken
+		googleRefreshToken = Args.RefreshToken
 
 	}
 
 	// Get access token using the refresh token
-	url := "https://oauth2.googleapis.com/token?client_id=" + args.ClientId + "&client_secret=" + args.ClientSecret + "&refresh_token=" + googleRefreshToken + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=refresh_token"
+	url := "https://oauth2.googleapis.com/token?client_id=" + Args.ClientId + "&client_secret=" + Args.ClientSecret + "&refresh_token=" + googleRefreshToken + "&redirect_uri=https%3A%2F%2Foauthcodeviewer.netlify.app&grant_type=refresh_token"
 	// Send a POST request to the URL with no authorization headers
 	resultBody, err := request(url, "POST", "", nil)
 	if err != nil {
