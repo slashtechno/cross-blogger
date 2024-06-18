@@ -35,6 +35,7 @@ var publishCmd = &cobra.Command{
 			destinationSlice = append(destinationSlice, destination)
 		}
 		log.Info("Destination slice", "destinations", destinationSlice)
+
 	},
 }
 
@@ -46,4 +47,8 @@ func init() {
 	publishCmd.Flags().String("client-id", "", "Google OAuth client ID")
 	publishCmd.Flags().String("client-secret", "", "Google OAuth client secret")
 	publishCmd.Flags().String("refresh-token", "", "Google OAuth refresh token")
+	// Allow the OAuth stuff to be set via viper
+	viper.BindPFlag("client-id", publishCmd.Flags().Lookup("client-id"))
+	viper.BindPFlag("client-secret", publishCmd.Flags().Lookup("client-secret"))
+	viper.BindPFlag("refresh-token", publishCmd.Flags().Lookup("refresh-token"))
 }
