@@ -10,11 +10,11 @@
             "args": ["publish", "--help"]
         },
         {
-            "name": "Run publish without args",
+            "name": "Run publish (dry run)",
             "type": "go",
             "request": "launch",
             "program": "${workspaceFolder}/cobra",
-            "args": ["publish"]
+            "args": ["publish", "markdown"]
         }
     ]
 }

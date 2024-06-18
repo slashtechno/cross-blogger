@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/charmbracelet/log"
+	"fmt"
 
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -31,38 +32,51 @@ var publishCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get the list of objects `destinations` from Viper and make a list of Destination structs
-		log.Debug(viper.AllSettings())
-		destinations, ok := viper.Get("destinations").([]map[string]interface{})
-		if !ok {
-			log.Fatal("Failed to get destinations from config file")
+		destinations := viper.Get("destinations")
+		if destinations == nil {
+			log.Fatal("Failed to get destinations from config")
 		}
+
 		// Make a list of the respective Destination structs
 		var destinationSlice []interface{}
 		// _ ignores the index. `dest` is the map
-		for _, dest := range destinations {
-			switch dest["type"] {
-			case "blogger":
-				destinationSlice = append(destinationSlice, Blogger{
-					Destination: Destination{
-						Name: dest["name"].(string),
-						Type: dest["type"].(string),
-					},
-					BlogUrl: dest["blogUrl"].(string),
-					BlogId:  dest["blogId"].(string),
-				})
-			case "markdown":
-				destinationSlice = append(destinationSlice, Markdown{
-					Destination: Destination{
-						Name: dest["name"].(string),
-						Type: dest["type"].(string),
-					},
-					ContentDir: dest["contentDir"].(string),
-				})
-			default:
-				log.Fatal("Unknown destination type:", dest["type"])
+		for _, dest := range destinations.([]interface{}) {
+			destMap, ok := dest.(map[string]interface{})
+			if !ok {
+				log.Fatal("Failed to convert destination to map")
 			}
+			destination, err := createDestination(destMap)
+			if err != nil {
+				log.Fatal(err)
+			}
+			destinationSlice = append(destinationSlice, destination)
 		}
+		// Use destinationSlice here
 	},
+}
+
+func createDestination(destMap map[string]interface{}) (interface{}, error) {
+	switch destMap["type"] {
+	case "blogger":
+		return Blogger{
+			Destination: Destination{
+				Name: destMap["name"].(string),
+				Type: destMap["type"].(string),
+			},
+			BlogUrl: destMap["blog_url"].(string),
+			BlogId:  destMap["blog_id"].(string),
+		}, nil
+	case "markdown":
+		return Markdown{
+			Destination: Destination{
+				Name: destMap["name"].(string),
+				Type: destMap["type"].(string),
+			},
+			ContentDir: destMap["content_dir"].(string),
+		}, nil
+	default:
+		return nil, fmt.Errorf("Unsupported destination type")
+	}
 }
 
 func init() {
