@@ -16,10 +16,11 @@ var cfgFile string
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	cmd.RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "./config.toml", "config file path")
+	cmd.RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.toml", "config file path")
 }
 
 func initConfig() {
+	log.Debug(cfgFile)
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -29,7 +30,7 @@ func initConfig() {
 	}
 
 	if err := viper.ReadInConfig(); err == nil {
-		log.Debug("Using config file:", viper.ConfigFileUsed())
+		log.Debug("", "config file:", viper.ConfigFileUsed())
 	} else {
 		// If the config file is not found, create a file, write the default values and exit
 		// Since viper.ConfigFileNotFoundError doesn't always work, also use fs.PathError
