@@ -46,9 +46,13 @@ func GetToken(cfg Config) (string, error) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		
+
 		// Send the refresh token to the channel.
 		tokenCh <- token.RefreshToken
+
+		// Send a response to close the window
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte("<script>window.close();</script>"))
 	})
 
 	// Start the server in a separate goroutine.
