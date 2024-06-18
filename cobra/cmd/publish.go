@@ -1,66 +1,73 @@
 package cmd
 
 import (
-	"strings"
-
 	"github.com/charmbracelet/log"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+type Destination struct {
+	Name string
+	Type string
+}
+
+type Blogger struct {
+	Destination
+	BlogUrl string
+	BlogId  string
+}
+type Markdown struct {
+	Destination
+	ContentDir string
+}
 
 var publishCmd = &cobra.Command{
 	Use:   "publish",
 	Short: "Publish to a destination",
 	Long: `Publish to a destination from a source. 
-	Specify the source as a positional argument and the destination as a flag in the format <platform>,<key1>=<value1>,<key2>=<value2>. 
-	Destination attributes
-	TODO
-	`,
+	Specify the source with the first positional argument. All arguments after the first are treated as destinations.
+	Destinations should be the name of the destinations specified in the config file`,
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		destinations, _ := cmd.Flags().GetStringSlice("destination")
-		// Make a map of platforms and their attributes
-		platformMap := make(map[string]map[string]string)
-
-		// Iterate over the destinations
-		for _, destination := range destinations {
-			// Split the destination into platform and attributes
-			// This splits the destination into two parts: the platform and the attributes
-			// Anything after the first semicolon is considered attributes
-			destinationParts := strings.SplitN(destination, ";", 2)
-			platform := destinationParts[0]
-			// Create a new map for the platform if it doesn't exist
-			if _, ok := platformMap[platform]; !ok {
-				platformMap[platform] = make(map[string]string)
-			}
-			// Check if there are any attributes
-			if len(destinationParts) > 1 {
-				// Split the attributes part on semicolon
-				attributes := strings.Split(destinationParts[1], ";")
-				// Populate the map with the attributes
-				for _, attribute := range attributes {
-					keyValue := strings.Split(attribute, "=")
-					if len(keyValue) == 2 {
-						platformMap[platform][keyValue[0]] = keyValue[1]
-					}
-				}
+		// Get the list of objects `destinations` from Viper and make a list of Destination structs
+		log.Debug(viper.AllSettings())
+		destinations, ok := viper.Get("destinations").([]map[string]interface{})
+		if !ok {
+			log.Fatal("Failed to get destinations from config file")
+		}
+		// Make a list of the respective Destination structs
+		var destinationSlice []interface{}
+		// _ ignores the index. `dest` is the map
+		for _, dest := range destinations {
+			switch dest["type"] {
+			case "blogger":
+				destinationSlice = append(destinationSlice, Blogger{
+					Destination: Destination{
+						Name: dest["name"].(string),
+						Type: dest["type"].(string),
+					},
+					BlogUrl: dest["blogUrl"].(string),
+					BlogId:  dest["blogId"].(string),
+				})
+			case "markdown":
+				destinationSlice = append(destinationSlice, Markdown{
+					Destination: Destination{
+						Name: dest["name"].(string),
+						Type: dest["type"].(string),
+					},
+					ContentDir: dest["contentDir"].(string),
+				})
+			default:
+				log.Fatal("Unknown destination type:", dest["type"])
 			}
 		}
-
-		// Debug log the destination map
-		log.Debugf("Platform map: %v", platformMap)
-		// Iterate over the platforms
-		for platform, attributes := range platformMap {
-			// Debug log the platform and attributes
-			log.Debugf("Platform: %s, Attributes: %v", platform, attributes)
-		}
-
 	},
 }
 
 func init() {
-	// example command: go run . publish --destination "blogger;blogAddress=example.com;postAddress=example-post" --destination "markdown;filepath=example.md" --title "Example Title" --dry-run
 	RootCmd.AddCommand(publishCmd)
 
-	publishCmd.Flags().StringSliceP("destination", "d", nil, "Destination(s) to publish to\nAvailable destinations: blogger, markdown, html\nMake sure to specify with <platform>,<key1>=<value1>,<key2>=<value2>,...")
 	publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
 	publishCmd.Flags().BoolP("dry-run", "r", false, "Don't actually publish")
 	publishCmd.Flags().String("client-id", "", "Google OAuth client ID")

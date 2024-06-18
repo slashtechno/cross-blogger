@@ -2,3 +2,4 @@ test*
 output.*
 .env*
 config.json
+_debug*
