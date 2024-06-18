@@ -1,19 +1,30 @@
 package cmd
 
-import "fmt"
+import (
+	"fmt"
+)
 
-type Destination struct {
-	Name string
-	Type string
+type Platform interface {
+	Push()
+	Pull()
 }
 
+// type PlatformParent struct {
+// 	Name string
+// }
+
+// func (p PlatformParent) Push() {
+// 	log.Error("child class must implement this method")
+// }
+
 type Blogger struct {
-	Destination
+	Name    string
 	BlogUrl string
 	BlogId  string
 }
+
 type Markdown struct {
-	Destination
+	Name       string
 	ContentDir string
 }
 
@@ -21,19 +32,13 @@ func CreateDestination(destMap map[string]interface{}) (interface{}, error) {
 	switch destMap["type"] {
 	case "blogger":
 		return Blogger{
-			Destination: Destination{
-				Name: destMap["name"].(string),
-				Type: destMap["type"].(string),
-			},
+			Name:    destMap["name"].(string),
 			BlogUrl: destMap["blog_url"].(string),
 			BlogId:  destMap["blog_id"].(string),
 		}, nil
 	case "markdown":
 		return Markdown{
-			Destination: Destination{
-				Name: destMap["name"].(string),
-				Type: destMap["type"].(string),
-			},
+			Name:       destMap["name"].(string),
 			ContentDir: destMap["content_dir"].(string),
 		}, nil
 	default:
