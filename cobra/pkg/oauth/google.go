@@ -1,4 +1,4 @@
-package googleauth
+package oauth
 
 import (
 	"context"
