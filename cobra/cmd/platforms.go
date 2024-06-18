@@ -2,6 +2,10 @@ package cmd
 
 import (
 	"fmt"
+
+	"github.com/charmbracelet/log"
+	"github.com/slashtechno/cross-blogger/cobra/pkg/oauth"
+	"github.com/spf13/viper"
 )
 
 type Platform interface {
@@ -21,6 +25,25 @@ type Blogger struct {
 	Name    string
 	BlogUrl string
 	BlogId  string
+}
+
+func (b Blogger) authorize() (string, error) {
+	oauthConfig := oauth.Config{
+		ClientID:     viper.GetString("client-id"),
+		ClientSecret: viper.GetString("client-secret"),
+		Port:         "8080",
+	}
+	refreshToken, err := oauth.GetToken(oauthConfig)
+	if err != nil {
+		return "", err
+	}
+
+	accessToken, err := oauth.GetAccessToken(oauthConfig, refreshToken)
+	if err != nil {
+		return "", err
+	}
+	log.Info("", "access token", accessToken)
+	return accessToken, nil
 }
 
 type Markdown struct {
