@@ -10,7 +10,11 @@ import (
 var publishCmd = &cobra.Command{
 	Use:   "publish",
 	Short: "Publish to a destination",
-	Long:  `Publish to a destination. Available destinations: blogger, markdown, html. Make sure to specify with <platform>,<key1>=<value1>,<key2>=<value2>,...`,
+	Long: `Publish to a destination from a source. 
+	Specify the source as a positional argument and the destination as a flag in the format <platform>,<key1>=<value1>,<key2>=<value2>. 
+	Destination attributes
+	TODO
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		destinations, _ := cmd.Flags().GetStringSlice("destination")
 		// Make a map of platforms and their attributes

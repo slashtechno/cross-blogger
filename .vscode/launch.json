@@ -8,6 +8,13 @@
             "mode": "auto",
             "program": "${workspaceFolder}",
             "args": ["publish", "--help"]
+        },
+        {
+            "name": "Run publish without args",
+            "type": "go",
+            "request": "launch",
+            "program": "${workspaceFolder}",
+            "args": ["publish"]
         }
     ]
 }
