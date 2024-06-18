@@ -7,14 +7,16 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cobra",
-            "args": ["publish", "--help"]
+            "args": ["publish", "--help"],
+            "console": "integratedTerminal"
         },
         {
             "name": "Run publish (dry run)",
             "type": "go",
             "request": "launch",
             "program": "${workspaceFolder}/cobra",
-            "args": ["publish", "markdown"]
+            "args": ["publish", "markdown"],
+            "console": "integratedTerminal"
         }
     ]
 }
