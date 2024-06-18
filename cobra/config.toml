@@ -1,10 +1,10 @@
 [[destinations]]
-blogId = '1234567890'
-blogUrl = 'https://example.com'
+blog_id = '1234567890'
+blog_url = 'https://example.com'
 name = 'blogger'
 type = 'blogger'
 
 [[destinations]]
-contentDir = 'content'
+content_dir = 'content'
 name = 'markdown1'
 type = 'markdown'
