@@ -54,7 +54,7 @@ var publishCmd = &cobra.Command{
 
 func init() {
 	// example command: go run . publish --destination "blogger;blogAddress=example.com;postAddress=example-post" --destination "markdown;filepath=example.md" --title "Example Title" --dry-run
-	rootCmd.AddCommand(publishCmd)
+	RootCmd.AddCommand(publishCmd)
 
 	publishCmd.Flags().StringSliceP("destination", "d", nil, "Destination(s) to publish to\nAvailable destinations: blogger, markdown, html\nMake sure to specify with <platform>,<key1>=<value1>,<key2>=<value2>,...")
 	publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
