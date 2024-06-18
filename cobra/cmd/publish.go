@@ -1,27 +1,10 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-type Destination struct {
-	Name string
-	Type string
-}
-
-type Blogger struct {
-	Destination
-	BlogUrl string
-	BlogId  string
-}
-type Markdown struct {
-	Destination
-	ContentDir string
-}
 
 var publishCmd = &cobra.Command{
 	Use:   "publish",
@@ -45,38 +28,14 @@ var publishCmd = &cobra.Command{
 			if !ok {
 				log.Fatal("Failed to convert destination to map")
 			}
-			destination, err := createDestination(destMap)
+			destination, err := CreateDestination(destMap)
 			if err != nil {
 				log.Fatal(err)
 			}
 			destinationSlice = append(destinationSlice, destination)
 		}
-		// Use destinationSlice here
+		log.Info("Destination slice", "destinations", destinationSlice)
 	},
-}
-
-func createDestination(destMap map[string]interface{}) (interface{}, error) {
-	switch destMap["type"] {
-	case "blogger":
-		return Blogger{
-			Destination: Destination{
-				Name: destMap["name"].(string),
-				Type: destMap["type"].(string),
-			},
-			BlogUrl: destMap["blog_url"].(string),
-			BlogId:  destMap["blog_id"].(string),
-		}, nil
-	case "markdown":
-		return Markdown{
-			Destination: Destination{
-				Name: destMap["name"].(string),
-				Type: destMap["type"].(string),
-			},
-			ContentDir: destMap["content_dir"].(string),
-		}, nil
-	default:
-		return nil, fmt.Errorf("Unsupported destination type")
-	}
 }
 
 func init() {
