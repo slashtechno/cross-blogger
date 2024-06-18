@@ -14,7 +14,7 @@ var cfgFile string
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	cmd.RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
+	cmd.RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "./config.yaml", "config file (default is $HOME/.cobra.yaml)")
 }
 
 func initConfig() {
@@ -29,7 +29,17 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		log.Debug("Using config file:", viper.ConfigFileUsed())
 	} else {
-		log.Fatal("Failed to read config file:", err)
+		// If the config file is not found, create a file, write the default values and exit
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			log.Debug("Config file not found, creating a new one")
+			viper.Set("destination", []string{"blogger;blogAddress=example.com;postAddress=example-post", "markdown;filepath=example.md"})
+			viper.Set("title", "Example Title")
+			viper.Set("dry-run", false)
+			viper.WriteConfigAs(cfgFile)
+			log.Debug("Config file created at:", cfgFile)
+		} else {
+			log.Fatal("Failed to read config file:", err)
+		}
 	}
 }
 
