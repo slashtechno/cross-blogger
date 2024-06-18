@@ -16,13 +16,13 @@ var publishCmd = &cobra.Command{
 	Destinations should be the name of the destinations specified in the config file`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get the list of objects `destinations` from Viper and make a list of Destination structs
 		destinations := viper.Get("destinations")
+		sources := viper.Get("sources")
 		if destinations == nil {
 			log.Fatal("Failed to get destinations from config")
 		}
 
-		// Make a list of the respective Destination structs
+		// Make a list of the Destination structs if the destination name is in the args
 		var destinationSlice []Destination
 		// _ ignores the index. `dest` is the map
 		for _, dest := range destinations.([]interface{}) {
@@ -34,24 +34,86 @@ var publishCmd = &cobra.Command{
 			if err != nil {
 				log.Fatal(err)
 			}
-			destinationSlice = append(destinationSlice, destination)
+			// Check if the destination name is in the third argument or onwards
+			for _, arg := range args[2:] {
+				if destination.GetName() == arg {
+					log.Info("Adding destination", "destination", destination.GetName())
+					destinationSlice = append(destinationSlice, destination)
+				} else {
+					log.Info("Not adding destination as it isn't specified in args", "destination", destination.GetName())
+				}
+			}
 		}
-		log.Info("Destination slice", "destinations", destinationSlice)
-		// Check if OAuth works (remove this later!)
-		if blogger, ok := destinationSlice[0].(Blogger); ok {
-			token, err := blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"))
+		log.Debug("Destination slice", "destinations", destinationSlice)
+		// Create a list of all the sources. If the source name is the first arg, use that source
+		var source Source
+		var found bool = false
+		for _, src := range sources.([]interface{}) {
+			sourceMap, ok := src.(map[string]interface{})
+			if !ok {
+				log.Fatal("Failed to convert source to map")
+			}
+			src, err := CreateSource(sourceMap)
 			if err != nil {
 				log.Fatal(err)
 			}
-			log.Info("", "token", token)
-			blogId, err := blogger.getBlogId(token)
-			if err != nil {
-				log.Fatal(err)
+			if src.GetName() == args[0] {
+				source = src
+				found = true
+				log.Info("Found source", "source", source.GetName())
 			}
-			log.Info("", "blog id", blogId)
 		}
-		// Get the source from the first argument
+		if !found {
+			log.Fatal("Failed to find source in config")
+		}
 
+		// Check if OAuth works (remove this later!)
+		// if blogger, ok := destinationSlice[0].(Blogger); ok {
+		// 	token, err := blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"))
+		// 	if err != nil {
+		// 		log.Fatal(err)
+		// 	}
+		// 	log.Info("", "token", token)
+		// 	blogId, err := blogger.getBlogId(token)
+		// 	if err != nil {
+		// 		log.Fatal(err)
+		// 	}
+		// 	log.Info("", "blog id", blogId)
+		// }
+
+		// Pull the data from the source
+		var options SourceOptions
+		switch source.GetType() {
+		case "blogger":
+			// Convert source to Blogger
+			var blogger Blogger
+			if tmpBlogger, ok := source.(Blogger); ok {
+				log.Debug("Asserted that source is Blogger successfully")
+				blogger = tmpBlogger
+			} else {
+				log.Fatal("This shoud never happen but Blogger source assertion failed")
+			}
+			// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
+			refreshToken := viper.GetString("google-refresh-token")
+			if refreshToken == "" {
+				log.Warn("No refresh token found in Viper")
+			} else {
+				log.Info("Found refresh token in Viper")
+			}
+			accessToken, err := blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
+			if err != nil {
+				log.Fatal(err)
+			}
+			blogId, err := blogger.getBlogId(accessToken)
+			if err != nil {
+				log.Fatal(err)
+			}
+			options = SourceOptions{
+				AccessToken: accessToken,
+				BlogId:      blogId,
+			}
+			source.Pull(options)
+		}
 	},
 }
 

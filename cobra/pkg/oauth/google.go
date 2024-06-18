@@ -20,7 +20,7 @@ type Config struct {
 
 // GetToken starts the OAuth2 flow, opens a temporary web server to handle the callback,
 // and returns the refresh token as a string.
-func GetToken(cfg Config) (string, error) {
+func GetGoogleRefreshToken(cfg Config) (string, error) {
 	// Configure the Google OAuth2 client.
 	googleOauthConfig := &oauth2.Config{
 		RedirectURL:  "http://localhost:8080/callback",
@@ -64,7 +64,7 @@ func GetToken(cfg Config) (string, error) {
 }
 
 // Return an access token from a refresh token
-func GetAccessToken(cfg Config, refreshToken string) (string, error) {
+func GetGoogleAccessToken(cfg Config, refreshToken string) (string, error) {
 	// Configure the Google OAuth2 client.
 	googleOauthConfig := &oauth2.Config{
 		RedirectURL:  "http://localhost:" + cfg.Port + "/callback",

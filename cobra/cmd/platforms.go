@@ -10,10 +10,19 @@ import (
 
 type Destination interface {
 	Push()
+	GetName() string
 }
 
 type Source interface {
-	Pull()
+	Pull(SourceOptions)
+	GetName() string
+	GetType() string
+}
+
+type SourceOptions struct {
+	AccessToken string
+	BlogId      string
+	Filepath    string
 }
 
 // type PlatformParent struct {
@@ -29,18 +38,23 @@ type Blogger struct {
 	BlogUrl string
 }
 
-func (b Blogger) authorize(clientId string, clientSecret string) (string, error) {
+func (b Blogger) authorize(clientId string, clientSecret string, providedRefreshToken string) (string, error) {
 	oauthConfig := oauth.Config{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Port:         "8080",
 	}
-	refreshToken, err := oauth.GetToken(oauthConfig)
-	if err != nil {
-		return "", err
+	var refreshToken string
+	var err error
+	if providedRefreshToken == "" {
+		refreshToken, err = oauth.GetGoogleRefreshToken(oauthConfig)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		refreshToken = providedRefreshToken
 	}
-
-	accessToken, err := oauth.GetAccessToken(oauthConfig, refreshToken)
+	accessToken, err := oauth.GetGoogleAccessToken(oauthConfig, refreshToken)
 	if err != nil {
 		return "", err
 	}
@@ -62,24 +76,24 @@ func (b Blogger) getBlogId(accessToken string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("id not found in response")
 	}
-
 	return id.(string), nil
 }
-func (b Blogger) Push() {
-	log.Error("not implemented")
+func (b Blogger) Pull(options SourceOptions) {
+	log.Info("Blogger pull called", "options", options)
 }
-func (b Blogger) Pull(postAddress string, accessToken string) {
-
-}
+func (b Blogger) Push()           { log.Error("not implemented") }
+func (b Blogger) GetName() string { return b.Name }
+func (b Blogger) GetType() string { return "blogger" }
 
 type Markdown struct {
 	Name       string
 	ContentDir string
 }
 
-func (m Markdown) Push() {
-	log.Error("not implemented")
-}
+func (m Markdown) Push()                      { log.Error("not implemented") }
+func (m Markdown) Pull(options SourceOptions) { log.Error("not implemented") }
+func (m Markdown) GetName() string            { return m.Name }
+func (m Markdown) GetType() string            { return "markdown" }
 
 func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 	switch destMap["type"] {
@@ -95,5 +109,22 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown destination type: %s", destMap["type"])
+	}
+}
+
+func CreateSource(sourceMap map[string]interface{}) (Source, error) {
+	switch sourceMap["type"] {
+	case "blogger":
+		return Blogger{
+			Name:    sourceMap["name"].(string),
+			BlogUrl: sourceMap["blog_url"].(string),
+		}, nil
+	case "file":
+		return Markdown{
+			Name:       sourceMap["name"].(string),
+			ContentDir: sourceMap["content_dir"].(string),
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown source type: %s", sourceMap["type"])
 	}
 }
