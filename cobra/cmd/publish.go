@@ -21,7 +21,7 @@ var publishCmd = &cobra.Command{
 		}
 
 		// Make a list of the respective Destination structs
-		var destinationSlice []interface{}
+		var destinationSlice []Platform
 		// _ ignores the index. `dest` is the map
 		for _, dest := range destinations.([]interface{}) {
 			destMap, ok := dest.(map[string]interface{})
@@ -35,7 +35,10 @@ var publishCmd = &cobra.Command{
 			destinationSlice = append(destinationSlice, destination)
 		}
 		log.Info("Destination slice", "destinations", destinationSlice)
-
+		// Check if OAuth works (remove this later!)
+		if blogger, ok := destinationSlice[0].(Blogger); ok {
+			blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"))
+		}
 	},
 }
 
@@ -44,11 +47,15 @@ func init() {
 
 	publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
 	publishCmd.Flags().BoolP("dry-run", "r", false, "Don't actually publish")
-	publishCmd.Flags().String("client-id", "", "Google OAuth client ID")
-	publishCmd.Flags().String("client-secret", "", "Google OAuth client secret")
-	publishCmd.Flags().String("refresh-token", "", "Google OAuth refresh token")
+	publishCmd.Flags().String("google-client-id", "", "Google OAuth client ID")
+	publishCmd.Flags().String("google-client-secret", "", "Google OAuth client secret")
+	publishCmd.Flags().String("google-refresh-token", "", "Google OAuth refresh token")
 	// Allow the OAuth stuff to be set via viper
-	viper.BindPFlag("client-id", publishCmd.Flags().Lookup("client-id"))
-	viper.BindPFlag("client-secret", publishCmd.Flags().Lookup("client-secret"))
-	viper.BindPFlag("refresh-token", publishCmd.Flags().Lookup("refresh-token"))
+	viper.BindPFlag("google-client-id", publishCmd.Flags().Lookup("google-client-id"))
+	viper.BindPFlag("google-client-secret", publishCmd.Flags().Lookup("google-client-secret"))
+	// viper.BindPFlag("google-refresh-token", publishCmd.Flags().Lookup("google-refresh-token"))
+	// Keep in mind that these should be prefixed with CROSS_BLOGGER
+	viper.BindEnv("google-client-id", "CROSS_BLOGGER_GOOGLE_CLIENT_ID")
+	viper.BindEnv("google-client-secret", "CROSS_BLOGGER_GOOGLE_CLIENT_SECRET")
+	// viper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
 }

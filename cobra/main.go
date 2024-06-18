@@ -10,6 +10,7 @@ import (
 	"github.com/slashtechno/cross-blogger/cobra/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/subosito/gotenv"
 )
 
 var cfgFile string
@@ -20,6 +21,10 @@ func init() {
 }
 
 func initConfig() {
+	// Load a .env file if it exists
+	gotenv.Load()
+	// Tell Viper to use the prefix "CROSS_BLOGGER" for environment variables
+	viper.SetEnvPrefix("CROSS_BLOGGER")
 	// log.Debug(cfgFile)
 	if cfgFile != "" {
 		// Use config file from the flag.

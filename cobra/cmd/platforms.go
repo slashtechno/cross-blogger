@@ -5,12 +5,11 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/slashtechno/cross-blogger/cobra/pkg/oauth"
-	"github.com/spf13/viper"
 )
 
 type Platform interface {
 	Push()
-	Pull()
+	// Pull()
 }
 
 // type PlatformParent struct {
@@ -27,10 +26,10 @@ type Blogger struct {
 	BlogId  string
 }
 
-func (b Blogger) authorize() (string, error) {
+func (b Blogger) authorize(clientId string, clientSecret string) (string, error) {
 	oauthConfig := oauth.Config{
-		ClientID:     viper.GetString("client-id"),
-		ClientSecret: viper.GetString("client-secret"),
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
 		Port:         "8080",
 	}
 	refreshToken, err := oauth.GetToken(oauthConfig)
@@ -46,12 +45,20 @@ func (b Blogger) authorize() (string, error) {
 	return accessToken, nil
 }
 
+func (b Blogger) Push() {
+	log.Error("not implemented")
+}
+
 type Markdown struct {
 	Name       string
 	ContentDir string
 }
 
-func CreateDestination(destMap map[string]interface{}) (interface{}, error) {
+func (m Markdown) Push() {
+	log.Error("not implemented")
+}
+
+func CreateDestination(destMap map[string]interface{}) (Platform, error) {
 	switch destMap["type"] {
 	case "blogger":
 		return Blogger{
