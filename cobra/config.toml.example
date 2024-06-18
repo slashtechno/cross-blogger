@@ -1,0 +1,5 @@
+[[destinations]]
+name = 'blogger'
+blog_url = 'https://example.com'
+type = 'blogger'
+

@@ -10,7 +10,9 @@ var publishCmd = &cobra.Command{
 	Use:   "publish",
 	Short: "Publish to a destination",
 	Long: `Publish to a destination from a source. 
-	Specify the source with the first positional argument. All arguments after the first are treated as destinations.
+	Specify the source with the first positional argument. 
+	The second positional argument is the specifier, such as a Blogger post URL or a file path.
+	All arguments after the first are treated as destinations.
 	Destinations should be the name of the destinations specified in the config file`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -21,7 +23,7 @@ var publishCmd = &cobra.Command{
 		}
 
 		// Make a list of the respective Destination structs
-		var destinationSlice []Platform
+		var destinationSlice []Destination
 		// _ ignores the index. `dest` is the map
 		for _, dest := range destinations.([]interface{}) {
 			destMap, ok := dest.(map[string]interface{})
@@ -37,8 +39,19 @@ var publishCmd = &cobra.Command{
 		log.Info("Destination slice", "destinations", destinationSlice)
 		// Check if OAuth works (remove this later!)
 		if blogger, ok := destinationSlice[0].(Blogger); ok {
-			blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"))
+			token, err := blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Info("", "token", token)
+			blogId, err := blogger.getBlogId(token)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Info("", "blog id", blogId)
 		}
+		// Get the source from the first argument
+
 	},
 }
 

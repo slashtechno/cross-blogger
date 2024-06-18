@@ -4,12 +4,16 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/log"
+	"github.com/go-resty/resty/v2"
 	"github.com/slashtechno/cross-blogger/cobra/pkg/oauth"
 )
 
-type Platform interface {
+type Destination interface {
 	Push()
-	// Pull()
+}
+
+type Source interface {
+	Pull()
 }
 
 // type PlatformParent struct {
@@ -23,7 +27,6 @@ type Platform interface {
 type Blogger struct {
 	Name    string
 	BlogUrl string
-	BlogId  string
 }
 
 func (b Blogger) authorize(clientId string, clientSecret string) (string, error) {
@@ -44,9 +47,29 @@ func (b Blogger) authorize(clientId string, clientSecret string) (string, error)
 	log.Info("", "access token", accessToken)
 	return accessToken, nil
 }
+func (b Blogger) getBlogId(accessToken string) (string, error) {
+	client := resty.New()
+	resp, err := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", accessToken)).SetResult(&map[string]interface{}{}).Get("https://www.googleapis.com/blogger/v3/blogs/byurl?url=" + b.BlogUrl)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode() != 200 {
+		return "", fmt.Errorf("failed to get blog id: %s", resp.String())
+	}
+	// Get the key "id" from the response
+	result := (*resp.Result().(*map[string]interface{}))
+	id, ok := result["id"]
+	if !ok {
+		return "", fmt.Errorf("id not found in response")
+	}
 
+	return id.(string), nil
+}
 func (b Blogger) Push() {
 	log.Error("not implemented")
+}
+func (b Blogger) Pull(postAddress string, accessToken string) {
+
 }
 
 type Markdown struct {
@@ -58,13 +81,12 @@ func (m Markdown) Push() {
 	log.Error("not implemented")
 }
 
-func CreateDestination(destMap map[string]interface{}) (Platform, error) {
+func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 	switch destMap["type"] {
 	case "blogger":
 		return Blogger{
 			Name:    destMap["name"].(string),
 			BlogUrl: destMap["blog_url"].(string),
-			BlogId:  destMap["blog_id"].(string),
 		}, nil
 	case "markdown":
 		return Markdown{
