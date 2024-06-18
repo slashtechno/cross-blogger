@@ -46,7 +46,7 @@ func GetToken(cfg Config) (string, error) {
 		if err != nil {
 			log.Fatal(err)
 		}
-
+		
 		// Send the refresh token to the channel.
 		tokenCh <- token.RefreshToken
 	})
