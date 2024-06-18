@@ -15,7 +15,7 @@
             "type": "go",
             "request": "launch",
             "program": "${workspaceFolder}/cobra",
-            "args": ["publish", "markdown"],
+            "args": ["publish", "blogger", "", "blogger"],
             "console": "integratedTerminal"
         }
     ]
