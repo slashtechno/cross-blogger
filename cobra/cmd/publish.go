@@ -134,7 +134,7 @@ var publishCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Info("Post data", "data", postData)
+		log.Info("Successfully pulled data", "title", postData.Title, "url", postData.CanonicalUrl, "markdown", postData.Markdown)
 
 		// For each destination, push the data
 		for _, destination := range destinationSlice {
@@ -153,7 +153,7 @@ var publishCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(publishCmd)
-
+	// Perhaps add a -f flag to force overwrite posts/files if they already exist
 	publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
 	publishCmd.Flags().BoolP("dry-run", "r", false, "Don't actually publish")
 	publishCmd.Flags().String("google-client-id", "", "Google OAuth client ID")

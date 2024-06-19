@@ -18,6 +18,7 @@ require (
 	github.com/subosito/gotenv v1.6.0
 	github.com/tidwall/gjson v1.16.0
 	golang.org/x/oauth2 v0.18.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
