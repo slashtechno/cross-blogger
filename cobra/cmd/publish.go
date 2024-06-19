@@ -95,12 +95,25 @@ var publishCmd = &cobra.Command{
 			}
 			// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
 			refreshToken := viper.GetString("google-refresh-token")
+			var accessToken string
+			var err error
 			if refreshToken == "" {
 				log.Warn("No refresh token found in Viper")
+				accessToken, refreshToken, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), "")
+				if err != nil {
+					log.Fatal(err)
+				}
+				// Write the refresh token to the config file
+				log.Info("Writing refresh token to Viper")
+				viper.Set("google-refresh-token", refreshToken)
+				err = viper.WriteConfig()
+				if err != nil {
+					log.Fatal(err)
+				}
 			} else {
 				log.Info("Found refresh token in Viper")
+				accessToken, _, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
 			}
-			accessToken, err := blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -125,12 +138,15 @@ func init() {
 	publishCmd.Flags().String("google-client-id", "", "Google OAuth client ID")
 	publishCmd.Flags().String("google-client-secret", "", "Google OAuth client secret")
 	publishCmd.Flags().String("google-refresh-token", "", "Google OAuth refresh token")
+	// Keep in mind that if the refresh token is not set in the config file, the program will request one
+	// It will then write the refresh token to the config file, along with any flags or env vars that have been set.
+	// You could always go back and remove those lines and continue using environment variables or flags as it won't write to the config file as long as the refresh token is set
 	// Allow the OAuth stuff to be set via viper
 	viper.BindPFlag("google-client-id", publishCmd.Flags().Lookup("google-client-id"))
 	viper.BindPFlag("google-client-secret", publishCmd.Flags().Lookup("google-client-secret"))
-	// viper.BindPFlag("google-refresh-token", publishCmd.Flags().Lookup("google-refresh-token"))
+	viper.BindPFlag("google-refresh-token", publishCmd.Flags().Lookup("google-refresh-token"))
 	// Keep in mind that these should be prefixed with CROSS_BLOGGER
 	viper.BindEnv("google-client-id", "CROSS_BLOGGER_GOOGLE_CLIENT_ID")
 	viper.BindEnv("google-client-secret", "CROSS_BLOGGER_GOOGLE_CLIENT_SECRET")
-	// viper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
+	viper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
 }
