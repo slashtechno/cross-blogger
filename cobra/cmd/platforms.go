@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gosimple/slug"
+	"gopkg.in/yaml.v2"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/charmbracelet/log"
@@ -196,7 +197,11 @@ func (m Markdown) Push(data PostData, options PlatformOptions) error {
 		CanonicalUrl: data.CanonicalUrl,
 	}
 	// Convert the frontmatter to YAML
-	content := fmt.Sprintf("---\n%s---\n\n%s", frontmatter, data.Markdown)
+	frontmatterYaml, err := yaml.Marshal(frontmatter)
+	if err != nil {
+		return err
+	}
+	content := fmt.Sprintf("---\n%s---\n\n%s", frontmatterYaml, data.Markdown)
 	log.Debug("Writing content", "content", content, "file", filePath)
 	_, err = file.WriteString(content)
 	if err != nil {
