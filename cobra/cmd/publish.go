@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -85,35 +87,7 @@ var publishCmd = &cobra.Command{
 		var options PlatformOptions
 		switch source.GetType() {
 		case "blogger":
-			// Convert source to Blogger
-			var blogger Blogger
-			if tmpBlogger, ok := source.(Blogger); ok {
-				log.Debug("Asserted that source is Blogger successfully")
-				blogger = tmpBlogger
-			} else {
-				log.Fatal("This shoud never happen but Blogger source assertion failed")
-			}
-			// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
-			refreshToken := viper.GetString("google-refresh-token")
-			var accessToken string
-			var err error
-			if refreshToken == "" {
-				log.Warn("No refresh token found in Viper")
-				accessToken, refreshToken, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), "")
-				if err != nil {
-					log.Fatal(err)
-				}
-				// Write the refresh token to the config file
-				log.Info("Writing refresh token to Viper")
-				viper.Set("google-refresh-token", refreshToken)
-				err = viper.WriteConfig()
-				if err != nil {
-					log.Fatal(err)
-				}
-			} else {
-				log.Info("Found refresh token in Viper")
-				accessToken, _, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
-			}
+			blogger, accessToken, err := prepareBlogger(source)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -170,4 +144,41 @@ func init() {
 	viper.BindEnv("google-client-id", "CROSS_BLOGGER_GOOGLE_CLIENT_ID")
 	viper.BindEnv("google-client-secret", "CROSS_BLOGGER_GOOGLE_CLIENT_SECRET")
 	viper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
+}
+
+// Return the Blogger object and a string with the access token.
+func prepareBlogger(source Source) (Blogger, string, error) {
+	// Convert source to Blogger
+	var blogger Blogger
+	if tmpBlogger, ok := source.(Blogger); ok {
+		log.Debug("Asserted that source is Blogger successfully")
+		blogger = tmpBlogger
+	} else {
+		return Blogger{}, "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
+	}
+	// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
+	refreshToken := viper.GetString("google-refresh-token")
+	var accessToken string
+	var err error
+	if refreshToken == "" {
+		log.Warn("No refresh token found in Viper")
+		accessToken, refreshToken, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), "")
+		if err != nil {
+			return Blogger{}, "", err
+		}
+		// Write the refresh token to the config file
+		log.Info("Writing refresh token to Viper")
+		viper.Set("google-refresh-token", refreshToken)
+		err = viper.WriteConfig()
+		if err != nil {
+			return Blogger{}, "", err
+		}
+	} else {
+		log.Info("Found refresh token in Viper")
+		accessToken, _, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
+	}
+	if err != nil {
+		return Blogger{}, "", err
+	}
+	return blogger, accessToken, nil
 }
