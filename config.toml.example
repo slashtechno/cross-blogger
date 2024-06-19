@@ -1,0 +1,26 @@
+# type is a required field that specifies the type of the source or destination.
+# name is the name of the source or destination. It is used to refer to the source or destination when running the command.
+# overwrite is a boolean field that specifies whether to overwrite the file/post if it already exists. This is done by removing old files/posts that have the same title.
+# blog_url is the URL of the blog
+# content_dir is the directory where the markdown files are located
+[[destinations]]
+blog_url = 'https://example.com'
+name = 'blog'
+overwrite = false
+type = 'blogger'
+
+[[destinations]]
+content_dir = 'content'
+name = 'otherblog'
+overwrite = false
+type = 'markdown'
+
+[[sources]]
+blog_url = 'https://example.com'
+name = 'someblog'
+type = 'blogger'
+
+[[sources]]
+content_dir = 'content'
+name = 'aBlogInMarkdown'
+type = 'markdown'
