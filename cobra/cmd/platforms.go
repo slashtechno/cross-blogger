@@ -2,19 +2,21 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
+	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/charmbracelet/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/slashtechno/cross-blogger/cobra/pkg/oauth"
 )
 
 type Destination interface {
-	Push()
+	Push() error
 	GetName() string
 }
 
 type Source interface {
-	Pull(SourceOptions)
+	Pull(SourceOptions) (PostData, error)
 	GetName() string
 	GetType() string
 }
@@ -23,6 +25,14 @@ type SourceOptions struct {
 	AccessToken string
 	BlogId      string
 	Filepath    string
+	PostUrl     string
+}
+
+type PostData struct {
+	Title    string
+	html     string
+	markdown string
+	// Other fields that are probably needed are canonical URL, publish date, and description
 }
 
 // type PlatformParent struct {
@@ -88,10 +98,44 @@ func (b Blogger) getBlogId(accessToken string) (string, error) {
 	}
 	return id.(string), nil
 }
-func (b Blogger) Pull(options SourceOptions) {
+func (b Blogger) Pull(options SourceOptions) (PostData, error) {
 	log.Info("Blogger pull called", "options", options)
+	postPath := strings.Replace(options.PostUrl, b.BlogUrl, "", 1)
+
+	client := resty.New()
+	resp, err := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).SetResult(&map[string]interface{}{}).Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts/bypath?path=" + postPath)
+	if err != nil {
+		return PostData{}, err
+	}
+	if resp.StatusCode() != 200 {
+		return PostData{}, fmt.Errorf("failed to get post: %s", resp.String())
+	}
+	// Get the keys "title" and "content" from the response
+	result := (*resp.Result().(*map[string]interface{}))
+	title, ok := result["title"].(string)
+	if !ok {
+		return PostData{}, fmt.Errorf("title not found in response or is not a string")
+	}
+	html, ok := result["content"].(string)
+	if !ok {
+		return PostData{}, fmt.Errorf("content not found in response or is not a string")
+	}
+	// Convert the HTML to Markdown
+	markdown, err := md.NewConverter("", true, nil).ConvertString(html)
+	if err != nil {
+		return PostData{}, err
+	}
+	return PostData{
+		Title:    title,
+		html:     html,
+		markdown: markdown,
+	}, nil
+
 }
-func (b Blogger) Push()           { log.Error("not implemented") }
+func (b Blogger) Push() error {
+	log.Error("not implemented")
+	return nil
+}
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
 
@@ -100,10 +144,16 @@ type Markdown struct {
 	ContentDir string
 }
 
-func (m Markdown) Push()                      { log.Error("not implemented") }
-func (m Markdown) Pull(options SourceOptions) { log.Error("not implemented") }
-func (m Markdown) GetName() string            { return m.Name }
-func (m Markdown) GetType() string            { return "markdown" }
+func (m Markdown) GetName() string { return m.Name }
+func (m Markdown) GetType() string { return "markdown" }
+func (m Markdown) Push() error {
+	log.Error("not implemented")
+	return nil
+}
+func (m Markdown) Pull(options SourceOptions) (PostData, error) {
+	log.Info("Markdown pull called", "options", options)
+	return PostData{}, nil
+}
 
 func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 	switch destMap["type"] {

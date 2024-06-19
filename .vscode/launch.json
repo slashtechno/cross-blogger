@@ -15,8 +15,18 @@
             "type": "go",
             "request": "launch",
             "program": "${workspaceFolder}/cobra",
-            "args": ["publish", "blogger", "", "blogger"],
+            // https://www.blogger.com/edit-profile.g
+            "args": ["publish", "blogger", "${input:PostURL}", "blogger"],
+            // "envFile": "${workspaceFolder}/cobra/.env",
             "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "PostURL",
+            "type": "promptString",
+            "description": "Enter the URL of the Blogger post to publish",
+            "default": "https://itsfrommars.blogspot.com/2022/08/hello-world.html"
         }
     ]
 }
