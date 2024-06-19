@@ -43,15 +43,16 @@ func initConfig() {
 			log.Debug("Config file not found, creating a new one")
 			viper.SetDefault("destinations", []map[string]interface{}{
 				{
-					"name":     "blogger",
-					"type":     "blogger",
-					"blog_url": "https://example.com",
-					"blog_id":  "1234567890",
+					"name":      "blogger",
+					"type":      "blogger",
+					"blog_url":  "https://example.com",
+					"overwrite": false,
 				},
 				{
 					"name":        "markdown1",
 					"type":        "markdown",
 					"content_dir": "content",
+					"overwrite":   false,
 				},
 			})
 			log.Fatal("Failed to read config file. Created a config file with default values. Please edit the file and run the command again.", "path", cfgFile)
