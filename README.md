@@ -31,7 +31,6 @@ Flags:
       --google-client-secret string   Google OAuth client secret
       --google-refresh-token string   Google OAuth refresh token
   -h, --help                          help for publish
-  -t, --title string                  Specify custom title instead of using the default
 
 Global Flags:
       --config string   config file path (default "config.toml")

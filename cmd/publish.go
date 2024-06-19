@@ -147,7 +147,7 @@ var publishCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(publishCmd)
-	publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
+	// publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
 	publishCmd.Flags().BoolP("dry-run", "r", false, "Don't actually publish")
 	publishCmd.Flags().String("google-client-id", "", "Google OAuth client ID")
 	publishCmd.Flags().String("google-client-secret", "", "Google OAuth client secret")
