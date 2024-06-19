@@ -2,37 +2,43 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/gosimple/slug"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/charmbracelet/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/slashtechno/cross-blogger/cobra/pkg/oauth"
+	"github.com/spf13/afero"
 )
 
 type Destination interface {
-	Push() error
-	GetName() string
-}
-
-type Source interface {
-	Pull(SourceOptions) (PostData, error)
+	Push(PostData, PlatformOptions) error
 	GetName() string
 	GetType() string
 }
 
-type SourceOptions struct {
+type Source interface {
+	Pull(PlatformOptions) (PostData, error)
+	GetName() string
+	GetType() string
+}
+
+type PlatformOptions struct {
 	AccessToken string
 	BlogId      string
-	Filepath    string
 	PostUrl     string
 }
 
 type PostData struct {
 	Title    string
-	html     string
-	markdown string
+	Html     string
+	Markdown string
 	// Other fields that are probably needed are canonical URL, publish date, and description
+	CanonicalUrl string
 }
 
 // type PlatformParent struct {
@@ -98,10 +104,9 @@ func (b Blogger) getBlogId(accessToken string) (string, error) {
 	}
 	return id.(string), nil
 }
-func (b Blogger) Pull(options SourceOptions) (PostData, error) {
+func (b Blogger) Pull(options PlatformOptions) (PostData, error) {
 	log.Info("Blogger pull called", "options", options)
 	postPath := strings.Replace(options.PostUrl, b.BlogUrl, "", 1)
-
 	client := resty.New()
 	resp, err := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).SetResult(&map[string]interface{}{}).Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts/bypath?path=" + postPath)
 	if err != nil {
@@ -120,19 +125,24 @@ func (b Blogger) Pull(options SourceOptions) (PostData, error) {
 	if !ok {
 		return PostData{}, fmt.Errorf("content not found in response or is not a string")
 	}
+	canonicalUrl, ok := result["url"].(string)
+	if !ok {
+		return PostData{}, fmt.Errorf("url not found in response or is not a string")
+	}
 	// Convert the HTML to Markdown
 	markdown, err := md.NewConverter("", true, nil).ConvertString(html)
 	if err != nil {
 		return PostData{}, err
 	}
 	return PostData{
-		Title:    title,
-		html:     html,
-		markdown: markdown,
+		Title:        title,
+		Html:         html,
+		Markdown:     markdown,
+		CanonicalUrl: canonicalUrl,
 	}, nil
 
 }
-func (b Blogger) Push() error {
+func (b Blogger) Push(data PostData, options PlatformOptions) error {
 	log.Error("not implemented")
 	return nil
 }
@@ -146,11 +156,56 @@ type Markdown struct {
 
 func (m Markdown) GetName() string { return m.Name }
 func (m Markdown) GetType() string { return "markdown" }
-func (m Markdown) Push() error {
-	log.Error("not implemented")
+
+// Push the data to the contentdir with the title as the filename using gosimple/slug.
+// The markdown file should have YAML frontmatter compatible with Hugo.
+func (m Markdown) Push(data PostData, options PlatformOptions) error {
+	// Create the file, if it exists, log an error and return
+	fs := afero.NewOsFs()
+	slug := slug.Make(data.Title)
+	// Clean the slug to remove any characters that may cause issues with the filesystem
+	slug = filepath.Clean(slug)
+	filePath := filepath.Join(m.ContentDir, slug+".md")
+	// Create parent directories if they don't exist
+	dirPath := filepath.Dir(filePath)
+	if _, err := fs.Stat(dirPath); os.IsNotExist(err) {
+		errDir := fs.MkdirAll(dirPath, 0755)
+		if errDir != nil {
+			log.Error("failed to create directory", "directory", dirPath)
+			return errDir
+		}
+	}
+	// Check if the file already exists
+	if _, err := fs.Stat(filePath); err == nil {
+		log.Error("file already exists", "file", filePath)
+		return nil
+	}
+	// Create the file
+	file, err := fs.Create(filePath)
+	if err != nil {
+		return err
+	}
+	// After the function returns, close the file
+	defer file.Close()
+	// Create the frontmatter
+	frontmatter := struct {
+		Title        string `yaml:"title"`
+		CanonicalUrl string `yaml:"canonicalUrl"`
+	}{
+		Title:        data.Title,
+		CanonicalUrl: data.CanonicalUrl,
+	}
+	// Convert the frontmatter to YAML
+	content := fmt.Sprintf("---\n%s---\n\n%s", frontmatter, data.Markdown)
+	log.Debug("Writing content", "content", content, "file", filePath)
+	_, err = file.WriteString(content)
+	if err != nil {
+		return err
+	}
 	return nil
+
 }
-func (m Markdown) Pull(options SourceOptions) (PostData, error) {
+func (m Markdown) Pull(options PlatformOptions) (PostData, error) {
 	log.Info("Markdown pull called", "options", options)
 	return PostData{}, nil
 }

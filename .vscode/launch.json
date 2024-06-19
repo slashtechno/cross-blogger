@@ -16,7 +16,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/cobra",
             // https://www.blogger.com/edit-profile.g
-            "args": ["publish", "blogger", "${input:PostURL}", "blogger"],
+            "args": ["publish", "blogger", "${input:PostURL}", "markdown"],
             // "envFile": "${workspaceFolder}/cobra/.env",
             "console": "integratedTerminal"
         }
