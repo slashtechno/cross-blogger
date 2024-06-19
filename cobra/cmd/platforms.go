@@ -38,7 +38,10 @@ type Blogger struct {
 	BlogUrl string
 }
 
-func (b Blogger) authorize(clientId string, clientSecret string, providedRefreshToken string) (string, error) {
+// Return the access token, refresh token (if one was not provided), and an error (if one occurred).
+// The access and refresh tokens are only returned if an error did not occur.
+// In Google Cloud, create OAuth client credentials for a desktop app and enable the Blogger API.
+func (b Blogger) authorize(clientId string, clientSecret string, providedRefreshToken string) (string, string, error) {
 	oauthConfig := oauth.Config{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
@@ -46,20 +49,27 @@ func (b Blogger) authorize(clientId string, clientSecret string, providedRefresh
 	}
 	var refreshToken string
 	var err error
-	if providedRefreshToken == "" {
+	if providedRefreshToken != "" {
+		log.Info("Using provided refresh token")
+		refreshToken = providedRefreshToken
+	} else {
+		log.Info("No refresh token provided, starting OAuth flow")
 		refreshToken, err = oauth.GetGoogleRefreshToken(oauthConfig)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
-	} else {
-		refreshToken = providedRefreshToken
 	}
 	accessToken, err := oauth.GetGoogleAccessToken(oauthConfig, refreshToken)
 	if err != nil {
-		return "", err
+		// Not returning the refresh token because it may have been invalid
+		return "", "", err
 	}
 	log.Info("", "access token", accessToken)
-	return accessToken, nil
+	if providedRefreshToken != "" {
+		return accessToken, providedRefreshToken, nil
+	}
+	return accessToken, refreshToken, nil
+
 }
 func (b Blogger) getBlogId(accessToken string) (string, error) {
 	client := resty.New()
