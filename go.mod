@@ -17,6 +17,8 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/subosito/gotenv v1.6.0
 	github.com/tidwall/gjson v1.16.0
+	github.com/yuin/goldmark v1.7.2
+	go.abhg.dev/goldmark/frontmatter v0.2.0
 	golang.org/x/oauth2 v0.18.0
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -24,6 +26,7 @@ require (
 require (
 	cloud.google.com/go/compute v1.24.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/PuerkitoBio/goquery v1.8.1 // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
