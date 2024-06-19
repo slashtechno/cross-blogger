@@ -53,6 +53,7 @@ type PostData struct {
 type Blogger struct {
 	Name      string
 	BlogUrl   string
+	// https://developers.google.com/blogger/docs/3.0/reference/posts/delete
 	Overwrite bool
 }
 
