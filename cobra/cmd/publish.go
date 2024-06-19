@@ -98,7 +98,9 @@ var publishCmd = &cobra.Command{
 				PostUrl:     args[1],
 			}
 		case "markdown":
-			log.Fatal("Markdown source not implemented")
+			options = PushPullOptions{
+				Filepath: args[1],
+			}
 		}
 		// Pull the data from the source
 		postData, err := source.Pull(options)
@@ -127,6 +129,11 @@ var publishCmd = &cobra.Command{
 				found = false
 			}
 			if found {
+				// Check if this is a dry run
+				if viper.GetBool("dry-run") {
+					log.Info("Dry run - not pushing data")
+					continue
+				}
 				err := destination.Push(postData, options)
 				if err != nil {
 					log.Fatal(err)
@@ -140,7 +147,6 @@ var publishCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(publishCmd)
-	// Perhaps add a -f flag to force overwrite posts/files if they already exist
 	publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
 	publishCmd.Flags().BoolP("dry-run", "r", false, "Don't actually publish")
 	publishCmd.Flags().String("google-client-id", "", "Google OAuth client ID")

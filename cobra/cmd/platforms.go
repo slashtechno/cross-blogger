@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gosimple/slug"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/parser"
 	"gopkg.in/yaml.v2"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
@@ -14,6 +17,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/slashtechno/cross-blogger/cobra/pkg/oauth"
 	"github.com/spf13/afero"
+	"go.abhg.dev/goldmark/frontmatter"
 )
 
 type Destination interface {
@@ -32,6 +36,12 @@ type PushPullOptions struct {
 	AccessToken string
 	BlogId      string
 	PostUrl     string
+	Filepath    string
+}
+
+type Frontmatter struct {
+	Title        string `yaml:"title"`
+	CanonicalUrl string `yaml:"canonicalURL"`
 }
 
 type PostData struct {
@@ -251,15 +261,12 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	// After the function returns, close the file
 	defer file.Close()
 	// Create the frontmatter
-	frontmatter := struct {
-		Title        string `yaml:"title"`
-		CanonicalUrl string `yaml:"canonicalUrl"`
-	}{
+	postFrontmatter := Frontmatter{
 		Title:        data.Title,
 		CanonicalUrl: data.CanonicalUrl,
 	}
 	// Convert the frontmatter to YAML
-	frontmatterYaml, err := yaml.Marshal(frontmatter)
+	frontmatterYaml, err := yaml.Marshal(postFrontmatter)
 	if err != nil {
 		return err
 	}
@@ -273,8 +280,57 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 
 }
 func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
-	log.Info("Markdown pull called", "options", options)
-	return PostData{}, nil
+	// Get the file path
+	fs := afero.NewOsFs()
+	// Treat the post path as relative to the content dir
+	// However, if the content dir does not exist or the file is not found, treat the post path as a normal path without the content dir
+	filePath := filepath.Join(m.ContentDir, options.Filepath)
+	if _, err := fs.Stat(filePath); os.IsNotExist(err) {
+		filePath = options.Filepath
+	}
+	// Read the file
+	data, err := afero.ReadFile(fs, filePath)
+	if err != nil {
+		return PostData{}, err
+	}
+	markdown := string(data)
+	// Convert the markdown to HTML with Goldmark
+	// Use the Frontmatter extension to get the frontmatter
+	mdParser := goldmark.New(goldmark.WithExtensions(&frontmatter.Extender{}))
+	ctx := parser.NewContext()
+	var buf bytes.Buffer
+	err = mdParser.Convert([]byte(markdown), &buf, parser.WithContext(ctx))
+	if err != nil {
+		return PostData{}, err
+	}
+	// Get the frontmatter
+	markdownFrontmatter := Frontmatter{}
+	frontmatterData := frontmatter.Get(ctx)
+	if err := frontmatterData.Decode(&markdownFrontmatter); err != nil {
+		return PostData{}, err
+	}
+	// Check if title and canonical URL are set
+	if markdownFrontmatter.Title == "" {
+		return PostData{}, fmt.Errorf("title is required in frontmatter")
+	}
+	if markdownFrontmatter.CanonicalUrl == "" {
+		log.Warn("canonical_url is not set in frontmatter")
+	}
+	// Convert the HTML to Markdown
+	html := buf.String()
+	// The frontmatter is stripped before converting to HTML
+	// Just convert the HTML to Markdown so the Markdown doesn't have the frontmatter (otherwise it would be duplicated)
+	markdown, err = md.NewConverter("", true, nil).ConvertString(html)
+	if err != nil {
+		return PostData{}, err
+	}
+	return PostData{
+		Title:        markdownFrontmatter.Title,
+		Html:         html,
+		Markdown:     markdown,
+		CanonicalUrl: markdownFrontmatter.CanonicalUrl,
+	}, nil
+
 }
 
 func CreateDestination(destMap map[string]interface{}) (Destination, error) {
@@ -333,7 +389,7 @@ func CreateSource(sourceMap map[string]interface{}) (Source, error) {
 			Name:    name,
 			BlogUrl: blogUrl,
 		}, nil
-	case "file":
+	case "markdown":
 		// If the content_dir is not set, set it to null as its not required
 		contentDir, _ := sourceMap["content_dir"].(string)
 		return Markdown{

@@ -16,8 +16,16 @@
             "request": "launch",
             "program": "${workspaceFolder}/cobra",
             // https://www.blogger.com/edit-profile.g
-            "args": ["publish", "blogger", "${input:PostURL}", "blogger"],
+            "args": ["publish", "blogger", "${input:PostURL}", "${input:Destination}"],
             // "envFile": "${workspaceFolder}/cobra/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Publish from Markdown",
+            "type": "go",
+            "request": "launch",
+            "program": "${workspaceFolder}/cobra",
+            "args": ["publish", "markdown", "${input:MarkdownPath}", "${input:Destination}"],
             "console": "integratedTerminal"
         }
     ],
@@ -26,7 +34,19 @@
             "id": "PostURL",
             "type": "promptString",
             "description": "Enter the URL of the Blogger post to publish",
-            "default": "https://itsfrommars.blogspot.com/2024/06/hello-world_78.html"
+            "default": "https://itsfrommars.blogspot.com/2024/06/hello-world_11.html"
+        },
+        {
+            "id": "MarkdownPath",
+            "type": "promptString",
+            "description": "Enter the path of the Markdown file to publish",
+            "default": "hello-world.md"
+        },
+        {
+            "id": "Destination",
+            "type": "promptString",
+            "description": "Enter the destination to publish",
+            "default": "markdown"
         }
     ]
 }
