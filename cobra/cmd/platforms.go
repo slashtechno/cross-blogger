@@ -51,8 +51,9 @@ type PostData struct {
 // }
 
 type Blogger struct {
-	Name    string
-	BlogUrl string
+	Name      string
+	BlogUrl   string
+	Overwrite bool
 }
 
 // Return the access token, refresh token (if one was not provided), and an error (if one occurred).
@@ -151,8 +152,10 @@ func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
 
 type Markdown struct {
-	Name       string
+	Name string
+	// ContentDir, for retrieving, should only be used if treating the passed post path as relative results in no file found
 	ContentDir string
+	Overwrite  bool
 }
 
 func (m Markdown) GetName() string { return m.Name }
@@ -177,10 +180,18 @@ func (m Markdown) Push(data PostData, options PlatformOptions) error {
 		}
 	}
 	// Check if the file already exists
-	if _, err := fs.Stat(filePath); err == nil {
-		log.Error("file already exists", "file", filePath)
-		return nil
+	if _, err := fs.Stat(filePath); err == nil && !m.Overwrite {
+		return fmt.Errorf("file already exists and overwrite is false for file: %s", filePath)
+	} else if err != nil && !os.IsNotExist(err) { // If the error is not a "file does not exist" error
+		return err
+	} else if err == nil && m.Overwrite { // If the file exists and overwrite is true, remove the file
+		log.Info("Removing file as overwrite is true", "file", filePath)
+		err := fs.Remove(filePath)
+		if err != nil {
+			return err
+		}
 	}
+
 	// Create the file
 	file, err := fs.Create(filePath)
 	if err != nil {
@@ -219,13 +230,15 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 	switch destMap["type"] {
 	case "blogger":
 		return Blogger{
-			Name:    destMap["name"].(string),
-			BlogUrl: destMap["blog_url"].(string),
+			Name:      destMap["name"].(string),
+			BlogUrl:   destMap["blog_url"].(string),
+			Overwrite: destMap["overwrite"].(bool),
 		}, nil
 	case "markdown":
 		return Markdown{
 			Name:       destMap["name"].(string),
 			ContentDir: destMap["content_dir"].(string),
+			Overwrite:  destMap["overwrite"].(bool),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown destination type: %s", destMap["type"])
