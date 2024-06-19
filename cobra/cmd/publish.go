@@ -84,18 +84,15 @@ var publishCmd = &cobra.Command{
 		// }
 
 		// Pull the data from the source
-		var options PlatformOptions
+		var options PushPullOptions
 		switch source.GetType() {
 		case "blogger":
-			blogger, accessToken, err := prepareBlogger(source)
+			_, accessToken, blogId, err := prepareBlogger(source, nil)
 			if err != nil {
 				log.Fatal(err)
 			}
-			blogId, err := blogger.getBlogId(accessToken)
-			if err != nil {
-				log.Fatal(err)
-			}
-			options = PlatformOptions{
+
+			options = PushPullOptions{
 				AccessToken: accessToken,
 				BlogId:      blogId,
 				PostUrl:     args[1],
@@ -112,14 +109,30 @@ var publishCmd = &cobra.Command{
 
 		// For each destination, push the data
 		for _, destination := range destinationSlice {
+			var found bool = true
 			switch destination.GetType() {
 			case "markdown":
-				options := PlatformOptions{}
+				options = PushPullOptions{}
+
+			case "blogger":
+				_, accessToken, blogId, err := prepareBlogger(nil, destination)
+				if err != nil {
+					log.Fatal(err)
+				}
+				options = PushPullOptions{
+					AccessToken: accessToken,
+					BlogId:      blogId,
+				}
+			default:
+				found = false
+			}
+			if found {
 				err := destination.Push(postData, options)
 				if err != nil {
 					log.Fatal(err)
 				}
-
+			} else {
+				log.Error("Destination type not found", "type", destination.GetType())
 			}
 		}
 	},
@@ -146,15 +159,29 @@ func init() {
 	viper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
 }
 
-// Return the Blogger object and a string with the access token.
-func prepareBlogger(source Source) (Blogger, string, error) {
+// Return the Blogger object and a string with the access token, the blog ID, and an error (if one occurred)
+func prepareBlogger(source Source, destination Destination) (Blogger, string, string, error) {
+	// Check if the user passed a source or destination. Exactly one should be passed.
+	var platform interface{}
+	if source == nil && destination == nil {
+		return Blogger{}, "", "", fmt.Errorf("no source or destination passed")
+	} else if source != nil && destination != nil {
+		return Blogger{}, "", "", fmt.Errorf("both source and destination passed")
+	} else if source != nil {
+		platform = source
+	} else if destination != nil {
+		platform = destination
+	} else {
+		return Blogger{}, "", "", fmt.Errorf("failed to determine if source or destination was passed")
+	}
+
 	// Convert source to Blogger
 	var blogger Blogger
-	if tmpBlogger, ok := source.(Blogger); ok {
+	if tmpBlogger, ok := platform.(Blogger); ok {
 		log.Debug("Asserted that source is Blogger successfully")
 		blogger = tmpBlogger
 	} else {
-		return Blogger{}, "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
+		return Blogger{}, "", "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
 	}
 	// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
 	refreshToken := viper.GetString("google-refresh-token")
@@ -164,21 +191,26 @@ func prepareBlogger(source Source) (Blogger, string, error) {
 		log.Warn("No refresh token found in Viper")
 		accessToken, refreshToken, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), "")
 		if err != nil {
-			return Blogger{}, "", err
+			return Blogger{}, "", "", err
 		}
 		// Write the refresh token to the config file
 		log.Info("Writing refresh token to Viper")
 		viper.Set("google-refresh-token", refreshToken)
 		err = viper.WriteConfig()
 		if err != nil {
-			return Blogger{}, "", err
+			return Blogger{}, "", "", err
 		}
 	} else {
 		log.Info("Found refresh token in Viper")
 		accessToken, _, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
 	}
 	if err != nil {
-		return Blogger{}, "", err
+		return Blogger{}, "", "", err
 	}
-	return blogger, accessToken, nil
+
+	blogId, err := blogger.getBlogId(accessToken)
+	if err != nil {
+		return Blogger{}, "", "", err
+	}
+	return blogger, accessToken, blogId, nil
 }

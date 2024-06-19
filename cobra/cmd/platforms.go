@@ -17,18 +17,18 @@ import (
 )
 
 type Destination interface {
-	Push(PostData, PlatformOptions) error
+	Push(PostData, PushPullOptions) error
 	GetName() string
 	GetType() string
 }
 
 type Source interface {
-	Pull(PlatformOptions) (PostData, error)
+	Pull(PushPullOptions) (PostData, error)
 	GetName() string
 	GetType() string
 }
 
-type PlatformOptions struct {
+type PushPullOptions struct {
 	AccessToken string
 	BlogId      string
 	PostUrl     string
@@ -51,8 +51,8 @@ type PostData struct {
 // }
 
 type Blogger struct {
-	Name      string
-	BlogUrl   string
+	Name    string
+	BlogUrl string
 	// https://developers.google.com/blogger/docs/3.0/reference/posts/delete
 	Overwrite bool
 }
@@ -107,7 +107,7 @@ func (b Blogger) getBlogId(accessToken string) (string, error) {
 	}
 	return id.(string), nil
 }
-func (b Blogger) Pull(options PlatformOptions) (PostData, error) {
+func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	log.Info("Blogger pull called", "options", options)
 	postPath := strings.Replace(options.PostUrl, b.BlogUrl, "", 1)
 	client := resty.New()
@@ -145,8 +145,58 @@ func (b Blogger) Pull(options PlatformOptions) (PostData, error) {
 	}, nil
 
 }
-func (b Blogger) Push(data PostData, options PlatformOptions) error {
-	log.Error("not implemented")
+func (b Blogger) Push(data PostData, options PushPullOptions) error {
+	// Set the client
+	client := resty.New()
+	blogId := options.BlogId
+
+	// Delete any post with the same ID
+	if b.Overwrite {
+		// Get the list of existing posts
+		resp, err := client.R().
+			SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).
+			SetResult(&map[string]interface{}{}).
+			Get("https://www.googleapis.com/blogger/v3/blogs/" + blogId + "/posts")
+		if err != nil {
+			return err
+		}
+		posts := (*resp.Result().(*map[string]interface{}))["items"].([]interface{})
+
+		// Check if a post with the same title already exists
+		for _, p := range posts {
+			post := p.(map[string]interface{})
+			if post["title"].(string) == data.Title {
+				// Delete the post
+				_, err := client.R().
+					SetQueryParam("useTrash", "true").
+					SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).
+					Delete("https://www.googleapis.com/blogger/v3/blogs/" + blogId + "/posts/" + post["id"].(string))
+				if err != nil {
+					return err
+				}
+				log.Info("Moved post with the same title to trash", "title", data.Title)
+				// If break is used and there are multiple posts with the same title, only the first one will be deleted
+				// break
+			}
+		}
+	}
+	log.Warn("Blogger does not support setting the canonical URL")
+	// Prepare the request
+	req := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).SetBody(map[string]interface{}{
+		"title":   data.Title,
+		"content": data.Html,
+		// "url":     data.CanonicalUrl,
+	}).SetResult(&map[string]interface{}{})
+	// Make the request
+	resp, err := req.Post("https://www.googleapis.com/blogger/v3/blogs/" + blogId + "/posts")
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != 200 {
+		return fmt.Errorf("failed to post: %s", resp.String())
+	}
+	result := (*resp.Result().(*map[string]interface{}))
+	log.Debug("Posted successfully", "result", result)
 	return nil
 }
 func (b Blogger) GetName() string { return b.Name }
@@ -164,7 +214,7 @@ func (m Markdown) GetType() string { return "markdown" }
 
 // Push the data to the contentdir with the title as the filename using gosimple/slug.
 // The markdown file should have YAML frontmatter compatible with Hugo.
-func (m Markdown) Push(data PostData, options PlatformOptions) error {
+func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	// Create the file, if it exists, log an error and return
 	fs := afero.NewOsFs()
 	slug := slug.Make(data.Title)
@@ -222,24 +272,43 @@ func (m Markdown) Push(data PostData, options PlatformOptions) error {
 	return nil
 
 }
-func (m Markdown) Pull(options PlatformOptions) (PostData, error) {
+func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
 	log.Info("Markdown pull called", "options", options)
 	return PostData{}, nil
 }
 
 func CreateDestination(destMap map[string]interface{}) (Destination, error) {
+	name, ok := destMap["name"].(string)
+	if !ok || name == "" {
+		return nil, fmt.Errorf("name is required")
+	}
+
 	switch destMap["type"] {
 	case "blogger":
+		blogUrl, ok := destMap["blog_url"].(string)
+		if !ok || blogUrl == "" {
+			return nil, fmt.Errorf("blog_url is required for blogger")
+		}
+
+		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
+
 		return Blogger{
-			Name:      destMap["name"].(string),
-			BlogUrl:   destMap["blog_url"].(string),
-			Overwrite: destMap["overwrite"].(bool),
+			Name:      name,
+			BlogUrl:   blogUrl,
+			Overwrite: overwrite,
 		}, nil
 	case "markdown":
+		contentDir, ok := destMap["content_dir"].(string)
+		if !ok || contentDir == "" {
+			return nil, fmt.Errorf("content_dir is required for markdown")
+		}
+
+		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
+
 		return Markdown{
-			Name:       destMap["name"].(string),
-			ContentDir: destMap["content_dir"].(string),
-			Overwrite:  destMap["overwrite"].(bool),
+			Name:       name,
+			ContentDir: contentDir,
+			Overwrite:  overwrite,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown destination type: %s", destMap["type"])
@@ -247,16 +316,29 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 }
 
 func CreateSource(sourceMap map[string]interface{}) (Source, error) {
+	// In Go, ifa type assertion fails, it will return the zero value of the type and false.
+	name, ok := sourceMap["name"].(string)
+	if !ok || name == "" {
+		return nil, fmt.Errorf("name is required")
+	}
+
 	switch sourceMap["type"] {
 	case "blogger":
+		blogUrl, ok := sourceMap["blog_url"].(string)
+		if !ok || blogUrl == "" {
+			return nil, fmt.Errorf("blog_url is required for blogger")
+		}
+
 		return Blogger{
-			Name:    sourceMap["name"].(string),
-			BlogUrl: sourceMap["blog_url"].(string),
+			Name:    name,
+			BlogUrl: blogUrl,
 		}, nil
 	case "file":
+		// If the content_dir is not set, set it to null as its not required
+		contentDir, _ := sourceMap["content_dir"].(string)
 		return Markdown{
-			Name:       sourceMap["name"].(string),
-			ContentDir: sourceMap["content_dir"].(string),
+			Name:       name,
+			ContentDir: contentDir,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", sourceMap["type"])
