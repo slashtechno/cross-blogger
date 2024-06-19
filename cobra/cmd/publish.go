@@ -82,7 +82,7 @@ var publishCmd = &cobra.Command{
 		// }
 
 		// Pull the data from the source
-		var options SourceOptions
+		var options PlatformOptions
 		switch source.GetType() {
 		case "blogger":
 			// Convert source to Blogger
@@ -121,7 +121,7 @@ var publishCmd = &cobra.Command{
 			if err != nil {
 				log.Fatal(err)
 			}
-			options = SourceOptions{
+			options = PlatformOptions{
 				AccessToken: accessToken,
 				BlogId:      blogId,
 				PostUrl:     args[1],
@@ -135,6 +135,19 @@ var publishCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		log.Info("Post data", "data", postData)
+
+		// For each destination, push the data
+		for _, destination := range destinationSlice {
+			switch destination.GetType() {
+			case "markdown":
+				options := PlatformOptions{}
+				err := destination.Push(postData, options)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+			}
+		}
 	},
 }
 
