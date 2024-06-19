@@ -124,9 +124,17 @@ var publishCmd = &cobra.Command{
 			options = SourceOptions{
 				AccessToken: accessToken,
 				BlogId:      blogId,
+				PostUrl:     args[1],
 			}
-			source.Pull(options)
+		case "markdown":
+			log.Fatal("Markdown source not implemented")
 		}
+		// Pull the data from the source
+		postData, err := source.Pull(options)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Info("Post data", "data", postData)
 	},
 }
 
