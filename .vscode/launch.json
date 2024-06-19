@@ -6,7 +6,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cobra",
+            "program": "${workspaceFolder}",
             "args": ["publish", "--help"],
             "console": "integratedTerminal"
         },
@@ -14,17 +14,17 @@
             "name": "Publish from blogger",
             "type": "go",
             "request": "launch",
-            "program": "${workspaceFolder}/cobra",
+            "program": "${workspaceFolder}",
             // https://www.blogger.com/edit-profile.g
             "args": ["publish", "blogger", "${input:PostURL}", "${input:Destination}"],
-            // "envFile": "${workspaceFolder}/cobra/.env",
+            // "envFile": "${workspaceFolder}/.env",
             "console": "integratedTerminal"
         },
         {
             "name": "Publish from Markdown",
             "type": "go",
             "request": "launch",
-            "program": "${workspaceFolder}/cobra",
+            "program": "${workspaceFolder}",
             "args": ["publish", "markdown", "${input:MarkdownPath}", "${input:Destination}"],
             "console": "integratedTerminal"
         }

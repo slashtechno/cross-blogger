@@ -1,5 +1,3 @@
-test*
-output.*
-.env*
-config.json
-_debug*
+config.toml
+*_markdown/
+.env

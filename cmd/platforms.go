@@ -15,7 +15,7 @@ import (
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/charmbracelet/log"
 	"github.com/go-resty/resty/v2"
-	"github.com/slashtechno/cross-blogger/cobra/pkg/oauth"
+	"github.com/slashtechno/cross-blogger/pkg/oauth"
 	"github.com/spf13/afero"
 	"go.abhg.dev/goldmark/frontmatter"
 )
