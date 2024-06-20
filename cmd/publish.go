@@ -71,37 +71,9 @@ var publishCmd = &cobra.Command{
 		log.Info("Successfully pulled data", "title", postData.Title, "url", postData.CanonicalUrl, "markdown", postData.Markdown)
 
 		// For each destination, push the data
-		for _, destination := range destinationSlice {
-			var found bool = true
-			switch destination.GetType() {
-			case "markdown":
-				options = platforms.PushPullOptions{}
-
-			case "blogger":
-				_, accessToken, blogId, err := prepareBlogger(nil, destination)
-				if err != nil {
-					log.Fatal(err)
-				}
-				options = platforms.PushPullOptions{
-					AccessToken: accessToken,
-					BlogId:      blogId,
-				}
-			default:
-				found = false
-			}
-			if found {
-				// Check if this is a dry run
-				if viper.GetBool("dry-run") {
-					log.Info("Dry run - not pushing data")
-					continue
-				}
-				err := destination.Push(postData, options)
-				if err != nil {
-					log.Fatal(err)
-				}
-			} else {
-				log.Error("Destination type not found", "type", destination.GetType())
-			}
+		err = pushToDestinations(postData, destinationSlice, viper.GetBool("dry-run"))
+		if err != nil {
+			log.Fatal(err)
 		}
 	},
 }
@@ -109,10 +81,10 @@ var publishCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(publishCmd)
 	// publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
-	publishCmd.Flags().BoolP("dry-run", "r", false, "Don't actually publish")
-	publishCmd.Flags().String("google-client-id", "", "Google OAuth client ID")
-	publishCmd.Flags().String("google-client-secret", "", "Google OAuth client secret")
-	publishCmd.Flags().String("google-refresh-token", "", "Google OAuth refresh token")
+	publishCmd.PersistentFlags().BoolP("dry-run", "r", false, "Don't actually publish")
+	publishCmd.PersistentFlags().String("google-client-id", "", "Google OAuth client ID")
+	publishCmd.PersistentFlags().String("google-client-secret", "", "Google OAuth client secret")
+	publishCmd.PersistentFlags().String("google-refresh-token", "", "Google OAuth refresh token")
 	// Keep in mind that if the refresh token is not set in the config file, the program will request one
 	// It will then write the refresh token to the config file, along with any flags or env vars that have been set.
 	// You could always go back and remove those lines and continue using environment variables or flags as it won't write to the config file as long as the refresh token is set
@@ -180,4 +152,43 @@ func prepareBlogger(source platforms.Source, destination platforms.Destination) 
 		return platforms.Blogger{}, "", "", err
 	}
 	return blogger, accessToken, blogId, nil
+}
+
+// For each destination, push the data
+func pushToDestinations(postData platforms.PostData, destinationSlice []platforms.Destination, dryRun bool) error {
+	for _, destination := range destinationSlice {
+		var found bool = true
+		var options platforms.PushPullOptions
+		switch destination.GetType() {
+		case "markdown":
+			options = platforms.PushPullOptions{}
+
+		case "blogger":
+			_, accessToken, blogId, err := prepareBlogger(nil, destination)
+			if err != nil {
+				return err
+			}
+			options = platforms.PushPullOptions{
+				AccessToken: accessToken,
+				BlogId:      blogId,
+			}
+		default:
+			found = false
+		}
+		if found {
+			// Check if this is a dry run
+			if viper.GetBool("dry-run") {
+				log.Info("Dry run - not pushing data")
+				continue
+			}
+			err := destination.Push(postData, options)
+			if err != nil {
+				return err
+			}
+		} else {
+			log.Error("Destination type not implemented", "type", destination.GetType())
+		}
+	}
+	// This should never be reached unless there are no destinations
+	return nil
 }
