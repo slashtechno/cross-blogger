@@ -48,7 +48,7 @@ var publishCmd = &cobra.Command{
 		var options platforms.PushPullOptions
 		switch source.GetType() {
 		case "blogger":
-			_, accessToken, blogId, err := prepareBlogger(source, nil)
+			_, accessToken, blogId, err := prepareBlogger(source, nil, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -99,7 +99,8 @@ func init() {
 }
 
 // Return the Blogger object and a string with the access token, the blog ID, and an error (if one occurred)
-func prepareBlogger(source platforms.Source, destination platforms.Destination) (platforms.Blogger, string, string, error) {
+// Take the client ID, client secret, and refresh token as a parameter
+func prepareBlogger(source platforms.Source, destination platforms.Destination, clientId string, clientSecret string, refreshToken string) (platforms.Blogger, string, string, error) {
 	// Check if the user passed a source or destination. Exactly one should be passed.
 	var platform interface{}
 	if source == nil && destination == nil {
@@ -123,12 +124,11 @@ func prepareBlogger(source platforms.Source, destination platforms.Destination) 
 		return platforms.Blogger{}, "", "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
 	}
 	// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
-	refreshToken := viper.GetString("google-refresh-token")
 	var accessToken string
 	var err error
 	if refreshToken == "" {
 		log.Warn("No refresh token found in Viper")
-		accessToken, refreshToken, err = blogger.Authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), "")
+		accessToken, refreshToken, err = blogger.Authorize(clientId, clientSecret, "")
 		if err != nil {
 			return platforms.Blogger{}, "", "", err
 		}
@@ -141,7 +141,7 @@ func prepareBlogger(source platforms.Source, destination platforms.Destination) 
 		}
 	} else {
 		log.Info("Found refresh token in Viper")
-		accessToken, _, err = blogger.Authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
+		accessToken, _, err = blogger.Authorize(clientId, clientSecret, refreshToken)
 	}
 	if err != nil {
 		return platforms.Blogger{}, "", "", err
@@ -164,7 +164,7 @@ func pushToDestinations(postData platforms.PostData, destinationSlice []platform
 			options = platforms.PushPullOptions{}
 
 		case "blogger":
-			_, accessToken, blogId, err := prepareBlogger(nil, destination)
+			_, accessToken, blogId, err := prepareBlogger(nil, destination, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
 			if err != nil {
 				return err
 			}
@@ -177,8 +177,8 @@ func pushToDestinations(postData platforms.PostData, destinationSlice []platform
 		}
 		if found {
 			// Check if this is a dry run
-			if viper.GetBool("dry-run") {
-				log.Info("Dry run - not pushing data")
+			if dryRun {
+				log.Info("Skipping push due to dry run")
 				continue
 			}
 			err := destination.Push(postData, options)
