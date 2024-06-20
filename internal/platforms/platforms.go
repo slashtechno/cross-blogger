@@ -1,4 +1,4 @@
-package cmd
+package platforms
 
 import (
 	"bytes"
@@ -70,7 +70,7 @@ type Blogger struct {
 // Return the access token, refresh token (if one was not provided), and an error (if one occurred).
 // The access and refresh tokens are only returned if an error did not occur.
 // In Google Cloud, create OAuth client credentials for a desktop app and enable the Blogger API.
-func (b Blogger) authorize(clientId string, clientSecret string, providedRefreshToken string) (string, string, error) {
+func (b Blogger) Authorize(clientId string, clientSecret string, providedRefreshToken string) (string, string, error) {
 	oauthConfig := oauth.Config{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
@@ -100,7 +100,7 @@ func (b Blogger) authorize(clientId string, clientSecret string, providedRefresh
 	return accessToken, refreshToken, nil
 
 }
-func (b Blogger) getBlogId(accessToken string) (string, error) {
+func (b Blogger) GetBlogId(accessToken string) (string, error) {
 	client := resty.New()
 	resp, err := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", accessToken)).SetResult(&map[string]interface{}{}).Get("https://www.googleapis.com/blogger/v3/blogs/byurl?url=" + b.BlogUrl)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/log"
+	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -24,67 +25,27 @@ var publishCmd = &cobra.Command{
 			log.Fatal("Failed to get destinations from config")
 		}
 
-		// Make a list of the Destination structs if the destination name is in the args
-		var destinationSlice []Destination
-		// _ ignores the index. `dest` is the map
-		for _, dest := range destinations.([]interface{}) {
-			destMap, ok := dest.(map[string]interface{})
-			if !ok {
-				log.Fatal("Failed to convert destination to map")
-			}
-			destination, err := CreateDestination(destMap)
-			if err != nil {
-				log.Fatal(err)
-			}
-			// Check if the destination name is in the third argument or onwards
-			for _, arg := range args[2:] {
-				if destination.GetName() == arg {
-					log.Info("Adding destination", "destination", destination.GetName())
-					destinationSlice = append(destinationSlice, destination)
-				} else {
-					log.Info("Not adding destination as it isn't specified in args", "destination", destination.GetName())
-				}
-			}
+		// Load the sources and destinations
+		// The slice of selected destinations should just be the first argument (0) as a slice
+		sourceSlice, destinationSlice, err := platforms.Load(sources, destinations, []string{args[0]}, args[2:])
+		if err != nil {
+			log.Fatal(err)
 		}
-		log.Debug("Destination slice", "destinations", destinationSlice)
-		// Create a list of all the sources. If the source name is the first arg, use that source
-		var source Source
+		// Whilst this shouldn't happen since args[0] is passed to Load, iterate over the sources to ensure that the source matches the first argument
 		var found bool = false
-		for _, src := range sources.([]interface{}) {
-			sourceMap, ok := src.(map[string]interface{})
-			if !ok {
-				log.Fatal("Failed to convert source to map")
-			}
-			src, err := CreateSource(sourceMap)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if src.GetName() == args[0] {
-				source = src
+		var source platforms.Source
+		for _, s := range sourceSlice {
+			if s.GetName() == args[0] {
+				source = s
 				found = true
-				log.Info("Found source", "source", source.GetName())
+				break
 			}
 		}
 		if !found {
-			log.Fatal("Failed to find source in config")
+			log.Fatal("Source not found", "source", args[0])
 		}
-
-		// Check if OAuth works (remove this later!)
-		// if blogger, ok := destinationSlice[0].(Blogger); ok {
-		// 	token, err := blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"))
-		// 	if err != nil {
-		// 		log.Fatal(err)
-		// 	}
-		// 	log.Info("", "token", token)
-		// 	blogId, err := blogger.getBlogId(token)
-		// 	if err != nil {
-		// 		log.Fatal(err)
-		// 	}
-		// 	log.Info("", "blog id", blogId)
-		// }
-
 		// Pull the data from the source
-		var options PushPullOptions
+		var options platforms.PushPullOptions
 		switch source.GetType() {
 		case "blogger":
 			_, accessToken, blogId, err := prepareBlogger(source, nil)
@@ -92,13 +53,13 @@ var publishCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 
-			options = PushPullOptions{
+			options = platforms.PushPullOptions{
 				AccessToken: accessToken,
 				BlogId:      blogId,
 				PostUrl:     args[1],
 			}
 		case "markdown":
-			options = PushPullOptions{
+			options = platforms.PushPullOptions{
 				Filepath: args[1],
 			}
 		}
@@ -114,14 +75,14 @@ var publishCmd = &cobra.Command{
 			var found bool = true
 			switch destination.GetType() {
 			case "markdown":
-				options = PushPullOptions{}
+				options = platforms.PushPullOptions{}
 
 			case "blogger":
 				_, accessToken, blogId, err := prepareBlogger(nil, destination)
 				if err != nil {
 					log.Fatal(err)
 				}
-				options = PushPullOptions{
+				options = platforms.PushPullOptions{
 					AccessToken: accessToken,
 					BlogId:      blogId,
 				}
@@ -166,28 +127,28 @@ func init() {
 }
 
 // Return the Blogger object and a string with the access token, the blog ID, and an error (if one occurred)
-func prepareBlogger(source Source, destination Destination) (Blogger, string, string, error) {
+func prepareBlogger(source platforms.Source, destination platforms.Destination) (platforms.Blogger, string, string, error) {
 	// Check if the user passed a source or destination. Exactly one should be passed.
 	var platform interface{}
 	if source == nil && destination == nil {
-		return Blogger{}, "", "", fmt.Errorf("no source or destination passed")
+		return platforms.Blogger{}, "", "", fmt.Errorf("no source or destination passed")
 	} else if source != nil && destination != nil {
-		return Blogger{}, "", "", fmt.Errorf("both source and destination passed")
+		return platforms.Blogger{}, "", "", fmt.Errorf("both source and destination passed")
 	} else if source != nil {
 		platform = source
 	} else if destination != nil {
 		platform = destination
 	} else {
-		return Blogger{}, "", "", fmt.Errorf("failed to determine if source or destination was passed")
+		return platforms.Blogger{}, "", "", fmt.Errorf("failed to determine if source or destination was passed")
 	}
 
 	// Convert source to Blogger
-	var blogger Blogger
-	if tmpBlogger, ok := platform.(Blogger); ok {
+	var blogger platforms.Blogger
+	if tmpBlogger, ok := platform.(platforms.Blogger); ok {
 		log.Debug("Asserted that source is Blogger successfully")
 		blogger = tmpBlogger
 	} else {
-		return Blogger{}, "", "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
+		return platforms.Blogger{}, "", "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
 	}
 	// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
 	refreshToken := viper.GetString("google-refresh-token")
@@ -195,28 +156,28 @@ func prepareBlogger(source Source, destination Destination) (Blogger, string, st
 	var err error
 	if refreshToken == "" {
 		log.Warn("No refresh token found in Viper")
-		accessToken, refreshToken, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), "")
+		accessToken, refreshToken, err = blogger.Authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), "")
 		if err != nil {
-			return Blogger{}, "", "", err
+			return platforms.Blogger{}, "", "", err
 		}
 		// Write the refresh token to the config file
 		log.Info("Writing refresh token to Viper")
 		viper.Set("google-refresh-token", refreshToken)
 		err = viper.WriteConfig()
 		if err != nil {
-			return Blogger{}, "", "", err
+			return platforms.Blogger{}, "", "", err
 		}
 	} else {
 		log.Info("Found refresh token in Viper")
-		accessToken, _, err = blogger.authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
+		accessToken, _, err = blogger.Authorize(viper.GetString("google-client-id"), viper.GetString("google-client-secret"), refreshToken)
 	}
 	if err != nil {
-		return Blogger{}, "", "", err
+		return platforms.Blogger{}, "", "", err
 	}
 
-	blogId, err := blogger.getBlogId(accessToken)
+	blogId, err := blogger.GetBlogId(accessToken)
 	if err != nil {
-		return Blogger{}, "", "", err
+		return platforms.Blogger{}, "", "", err
 	}
 	return blogger, accessToken, blogId, nil
 }
