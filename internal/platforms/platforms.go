@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gosimple/slug"
 	"github.com/yuin/goldmark"
@@ -30,6 +31,12 @@ type Source interface {
 	Pull(PushPullOptions) (PostData, error)
 	GetName() string
 	GetType() string
+}
+type WatchableSource interface {
+	Source
+	// Watch should check for new content at the interval specified and run asynchronusly
+	// New content should be able to be iterated over by a separate function
+	Watch(interval time.Duration, options PushPullOptions, postChan chan PostData, errChan chan error)
 }
 
 type PushPullOptions struct {
@@ -64,7 +71,8 @@ type Blogger struct {
 	Name    string
 	BlogUrl string
 	// https://developers.google.com/blogger/docs/3.0/reference/posts/delete
-	Overwrite bool
+	Overwrite  bool
+	knownPosts []string
 }
 
 // Return the access token, refresh token (if one was not provided), and an error (if one occurred).
@@ -209,6 +217,11 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 	log.Debug("Posted successfully", "result", result)
 	return nil
 }
+
+func (b *Blogger) Watch(interval time.Duration, postChan chan PostData, errChan chan error) {
+
+}
+
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
 

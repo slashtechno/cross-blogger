@@ -17,7 +17,10 @@ var publishCmd = &cobra.Command{
 	The second positional argument is the specifier, such as a Blogger post URL or a file path.
 	All arguments after the first are treated as destinations.
 	Destinations should be the name of the destinations specified in the config file`,
-	Args: cobra.MinimumNArgs(1),
+	// Arg 1: Source
+	// Arg 2: Specifier
+	// Arg 3+: Destinations
+	Args: cobra.MinimumNArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		destinations := viper.Get("destinations")
 		sources := viper.Get("sources")
@@ -26,7 +29,7 @@ var publishCmd = &cobra.Command{
 		}
 
 		// Load the sources and destinations
-		// The slice of selected destinations should just be the first argument (0) as a slice
+		// For now, since we're only pulling from one source, the first argument is the source
 		sourceSlice, destinationSlice, err := platforms.Load(sources, destinations, []string{args[0]}, args[2:])
 		if err != nil {
 			log.Fatal(err)
