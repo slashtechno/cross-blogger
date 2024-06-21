@@ -39,24 +39,25 @@ var watchCmd = &cobra.Command{
 		if !found {
 			log.Fatal("Source not found", "source", args[0])
 		}
-		// Assert that the source is a watchable source
-		_, ok := source.(platforms.WatchableSource)
+		// Assert that the source is a WatchableSource
+		watcher, ok := source.(platforms.WatchableSource)
 		if !ok {
-			log.Fatal("Source is not watchable", "source", args[0])
+			log.Fatal("Source is not a watcher", "source", args[0])
 		}
 
 		// Pull the data from the source
 		var options platforms.PushPullOptions
 		switch source.GetType() {
 		case "blogger":
-			_, accessToken, blogId, err := prepareBlogger(source, nil, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
+			_, accessToken, blogId, refreshToken, err := prepareBlogger(source, nil, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
 			if err != nil {
 				log.Fatal(err)
 			}
 			options = platforms.PushPullOptions{
 				// TODO pass the refresh token since I imagine the access token will expire eventually
-				AccessToken: accessToken,
-				BlogId:      blogId,
+				AccessToken:  accessToken,
+				BlogId:       blogId,
+				RefreshToken: refreshToken,
 			}
 		default:
 			log.Fatal("Source type not implemented", "source", source.GetType())
@@ -66,16 +67,21 @@ var watchCmd = &cobra.Command{
 		postChan := make(chan platforms.PostData)
 		errChan := make(chan error)
 
-		blogger := source.(platforms.WatchableSource)
-		go blogger.Watch(viper.GetDuration("interval"), options, postChan, errChan)
+		// Start watching the source in a separate goroutine
+		// This will send new posts to postChan and errors to errChan
+		go watcher.Watch(viper.GetDuration("interval"), options, postChan, errChan)
 
+		// Start an infinite loop
 		for {
+			// Wait for something to happen
 			select {
+			// If a new post arrives
 			case post := <-postChan:
-				// Handle new post
+				// Log the new post
 				log.Info("New post", "post", post)
+			// If an error occurs
 			case err := <-errChan:
-				// Handle error
+				// Log the error
 				log.Error("Error", "error", err)
 			}
 		}

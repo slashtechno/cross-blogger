@@ -34,16 +34,15 @@ type Source interface {
 }
 type WatchableSource interface {
 	Source
-	// Watch should check for new content at the interval specified and run asynchronusly
-	// New content should be able to be iterated over by a separate function
-	Watch(interval time.Duration, options PushPullOptions, postChan chan PostData, errChan chan error)
+	Watch(time.Duration, PushPullOptions, chan<- PostData, chan<- error)
 }
 
 type PushPullOptions struct {
-	AccessToken string
-	BlogId      string
-	PostUrl     string
-	Filepath    string
+	AccessToken  string
+	BlogId       string
+	PostUrl      string
+	Filepath     string
+	RefreshToken string
 }
 
 type Frontmatter struct {
@@ -218,10 +217,54 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 	return nil
 }
 
-func (b *Blogger) Watch(interval time.Duration, postChan chan PostData, errChan chan error) {
+// Every interval, check for new posts (posts that haven't been seen before) and send them to the postChan channel.
+// I can't get this to work as a pointer receiver because it doesn't satisfy the WatchableSource interface.
+func (b *Blogger) Watch(interval time.Duration, options PushPullOptions, postChan chan<- PostData, errChan chan<- error) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
+	for range ticker.C {
+		// Fetch new posts from Blogger
+		// Refresh the access token
+		var err error
+		options.AccessToken, _, err = b.Authorize("", "", options.RefreshToken)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		posts, err := b.fetchNewPosts(options)
+		if err != nil {
+			errChan <- err
+			// Continue will skip the rest of the loop and go to the next iteration
+			// Return will end the goroutine if an error occurs
+			// continue
+			return
+		}
+
+		// Send new posts to the channel
+		for _, post := range posts {
+			postChan <- post
+		}
+	}
 }
 
+// Get posts that haven't been seen before and return them
+func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
+	// Get the list of posts
+	client := resty.New()
+	resp, err := client.R().
+		SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).
+		SetResult(&map[string]interface{}{}).
+		Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts")
+	if err != nil {
+		return nil, err
+	}
+	// Assert that posts is a pointer to a map. However, dereference it to get the map
+	posts := (*resp.Result().(*map[string]interface{}))["items"].([]interface{})
+	log.Debug("", "posts", posts)
+	// TODO
+	return nil, nil
+}
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
 
@@ -361,7 +404,7 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 
-		return Blogger{
+		return &Blogger{
 			Name:      name,
 			BlogUrl:   blogUrl,
 			Overwrite: overwrite,
@@ -374,7 +417,7 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 
-		return Markdown{
+		return &Markdown{
 			Name:       name,
 			ContentDir: contentDir,
 			Overwrite:  overwrite,
@@ -398,14 +441,14 @@ func CreateSource(sourceMap map[string]interface{}) (Source, error) {
 			return nil, fmt.Errorf("blog_url is required for blogger")
 		}
 
-		return Blogger{
+		return &Blogger{
 			Name:    name,
 			BlogUrl: blogUrl,
 		}, nil
 	case "markdown":
 		// If the content_dir is not set, set it to null as its not required
 		contentDir, _ := sourceMap["content_dir"].(string)
-		return Markdown{
+		return &Markdown{
 			Name:       name,
 			ContentDir: contentDir,
 		}, nil

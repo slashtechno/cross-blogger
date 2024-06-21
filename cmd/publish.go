@@ -51,7 +51,7 @@ var publishCmd = &cobra.Command{
 		var options platforms.PushPullOptions
 		switch source.GetType() {
 		case "blogger":
-			_, accessToken, blogId, err := prepareBlogger(source, nil, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
+			_, accessToken, blogId, _, err := prepareBlogger(source, nil, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -101,30 +101,30 @@ func init() {
 	viper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
 }
 
-// Return the Blogger object and a string with the access token, the blog ID, and an error (if one occurred)
+// Return the Blogger object and a string with the access token, the blog ID, a refresh token, and an error if one occurred
 // Take the client ID, client secret, and refresh token as a parameter
-func prepareBlogger(source platforms.Source, destination platforms.Destination, clientId string, clientSecret string, refreshToken string) (platforms.Blogger, string, string, error) {
+func prepareBlogger(source platforms.Source, destination platforms.Destination, clientId string, clientSecret string, refreshToken string) (platforms.Blogger, string, string, string, error) {
 	// Check if the user passed a source or destination. Exactly one should be passed.
 	var platform interface{}
 	if source == nil && destination == nil {
-		return platforms.Blogger{}, "", "", fmt.Errorf("no source or destination passed")
+		return platforms.Blogger{}, "", "", "", fmt.Errorf("no source or destination passed")
 	} else if source != nil && destination != nil {
-		return platforms.Blogger{}, "", "", fmt.Errorf("both source and destination passed")
+		return platforms.Blogger{}, "", "", "", fmt.Errorf("both source and destination passed")
 	} else if source != nil {
 		platform = source
 	} else if destination != nil {
 		platform = destination
 	} else {
-		return platforms.Blogger{}, "", "", fmt.Errorf("failed to determine if source or destination was passed")
+		return platforms.Blogger{}, "", "", "", fmt.Errorf("failed to determine if source or destination was passed")
 	}
 
 	// Convert source to Blogger
-	var blogger platforms.Blogger
-	if tmpBlogger, ok := platform.(platforms.Blogger); ok {
+	var blogger *platforms.Blogger
+	if tmpBlogger, ok := platform.(*platforms.Blogger); ok {
 		log.Debug("Asserted that source is Blogger successfully")
 		blogger = tmpBlogger
 	} else {
-		return platforms.Blogger{}, "", "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
+		return platforms.Blogger{}, "", "", "", fmt.Errorf("failed to assert that source is Blogger - potentially due to being called on a non-Blogger source")
 	}
 	// If the refresh token exists in Viper, pass that to Blogger.Authorize. Otherwise, pass an empty string
 	var accessToken string
@@ -133,28 +133,28 @@ func prepareBlogger(source platforms.Source, destination platforms.Destination, 
 		log.Warn("No refresh token found in Viper")
 		accessToken, refreshToken, err = blogger.Authorize(clientId, clientSecret, "")
 		if err != nil {
-			return platforms.Blogger{}, "", "", err
+			return platforms.Blogger{}, "", "", "", err
 		}
 		// Write the refresh token to the config file
 		log.Info("Writing refresh token to Viper")
 		viper.Set("google-refresh-token", refreshToken)
 		err = viper.WriteConfig()
 		if err != nil {
-			return platforms.Blogger{}, "", "", err
+			return platforms.Blogger{}, "", "", "", err
 		}
 	} else {
 		log.Info("Found refresh token in Viper")
 		accessToken, _, err = blogger.Authorize(clientId, clientSecret, refreshToken)
 	}
 	if err != nil {
-		return platforms.Blogger{}, "", "", err
+		return platforms.Blogger{}, "", "", "", err
 	}
 
 	blogId, err := blogger.GetBlogId(accessToken)
 	if err != nil {
-		return platforms.Blogger{}, "", "", err
+		return platforms.Blogger{}, "", "", "", err
 	}
-	return blogger, accessToken, blogId, nil
+	return *blogger, accessToken, blogId, refreshToken, nil
 }
 
 // For each destination, push the data
@@ -167,7 +167,7 @@ func pushToDestinations(postData platforms.PostData, destinationSlice []platform
 			options = platforms.PushPullOptions{}
 
 		case "blogger":
-			_, accessToken, blogId, err := prepareBlogger(nil, destination, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
+			_, accessToken, blogId, _, err := prepareBlogger(nil, destination, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
 			if err != nil {
 				return err
 			}

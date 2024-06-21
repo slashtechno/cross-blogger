@@ -21,6 +21,16 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Blogger watch",
+            "type": "go",
+            "request": "launch",
+            "program": "${workspaceFolder}",
+            // https://www.blogger.com/edit-profile.g
+            "args": ["publish", "watch", "blogger", "${input:Destination}"],
+            // "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Publish from Markdown",
             "type": "go",
             "request": "launch",
