@@ -21,8 +21,8 @@ var watchCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the sources and destinations
-		sourceSlice, _, err := platforms.Load(viper.Get("sources"), viper.Get("destinations"), []string{args[0]}, args[1:])
-		// sourceSlice, destinationSlice, err := platforms.Load(viper.Get("sources"), viper.Get("destinations"), []string{args[0]}, args[1:])
+		// sourceSlice, _, err := platforms.Load(viper.Get("sources"), viper.Get("destinations"), []string{args[0]}, args[1:])
+		sourceSlice, destinationSlice, err := platforms.Load(viper.Get("sources"), viper.Get("destinations"), []string{args[0]}, args[1:])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -54,12 +54,11 @@ var watchCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 			options = platforms.PushPullOptions{
-				// TODO pass the refresh token since I imagine the access token will expire eventually
 				AccessToken:  accessToken,
 				BlogId:       blogId,
 				RefreshToken: refreshToken,
 				ClientId:     viper.GetString("google-client-id"),
-				ClientSecret: viper.GetString("google-client-secret"),	
+				ClientSecret: viper.GetString("google-client-secret"),
 			}
 		default:
 			log.Fatal("Source type not implemented", "source", source.GetType())
@@ -81,6 +80,10 @@ var watchCmd = &cobra.Command{
 			case post := <-postChan:
 				// Log the new post
 				log.Info("New post", "post", post)
+				err := pushToDestinations(post, destinationSlice, viper.GetBool("dry-run"))
+				if err != nil {
+					log.Error("Error", "error", err)
+				}
 			// If an error occurs
 			case err := <-errChan:
 				// Log the error

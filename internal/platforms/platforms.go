@@ -88,7 +88,7 @@ func (b Blogger) Authorize(clientId string, clientSecret string, providedRefresh
 	var refreshToken string
 	var err error
 	if providedRefreshToken != "" {
-		log.Info("Using provided refresh token")
+		log.Debug("Using provided refresh token")
 		refreshToken = providedRefreshToken
 	} else {
 		log.Info("No refresh token provided, starting OAuth flow")
@@ -102,7 +102,7 @@ func (b Blogger) Authorize(clientId string, clientSecret string, providedRefresh
 		// Not returning the refresh token because it may have been invalid
 		return "", "", err
 	}
-	log.Info("", "access token", accessToken)
+	log.Debug("", "access token", accessToken)
 	if providedRefreshToken != "" {
 		return accessToken, providedRefreshToken, nil
 	}
