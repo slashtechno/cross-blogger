@@ -47,7 +47,8 @@ func initConfig() {
 				{
 					"name":        "otherblog",
 					"type":        "markdown",
-					"content_dir": "content",
+					"content_dir": "/hugo-site/content/blog",
+					"git_dir":     "/hugo-site",
 					"overwrite":   false,
 				},
 			})

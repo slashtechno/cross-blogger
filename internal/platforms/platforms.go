@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/gosimple/slug"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
@@ -303,6 +304,7 @@ type Markdown struct {
 	Name string
 	// ContentDir, for retrieving, should only be used if treating the passed post path as relative results in no file found
 	ContentDir string
+	GitDir     string
 	Overwrite  bool
 }
 
@@ -363,6 +365,41 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	if err != nil {
 		return err
 	}
+
+	// If the Git directory is set, commit + push the changes
+	if m.GitDir != "" {
+
+		// Open the git repository
+		// Clean up the Git directory path
+		dirPath = filepath.Clean(m.GitDir)
+		// No need to check if the directory exits since PlainOpen will return an error if a repos
+		// Open the repository
+		repo, err := git.PlainOpen(dirPath)
+		if err != nil {
+			return err
+		}
+		repoWorktree, err := repo.Worktree()
+		if err != nil {
+			return err
+		}
+		// Add the file
+		_, err = repoWorktree.Add(filepath.Base(filePath))
+		if err != nil {
+			return err
+		}
+		// Commit the changes
+		commitHash, err := repoWorktree.Commit("Add "+slug+".md", &git.CommitOptions{})
+		if err != nil {
+			return err
+		}
+		log.Info("Committed changes", "hash", commitHash.String())
+		// Push the changes
+		err = repo.Push(&git.PushOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 
 }
@@ -445,12 +482,13 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 		if !ok || contentDir == "" {
 			return nil, fmt.Errorf("content_dir is required for markdown")
 		}
-
+		gitDir, _ := destMap["git_dir"].(string)    // If not set, defaults to ""
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 
 		return &Markdown{
 			Name:       name,
 			ContentDir: contentDir,
+			GitDir:     gitDir,
 			Overwrite:  overwrite,
 		}, nil
 	default:
