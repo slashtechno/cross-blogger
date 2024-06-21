@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var ConfigFile string
+
 // rootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "cross-blogger",
@@ -36,4 +38,5 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	RootCmd.PersistentFlags().StringVar(&ConfigFile, "config", "config.toml", "config file path")
 }

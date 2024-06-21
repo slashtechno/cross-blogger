@@ -10,11 +10,8 @@ import (
 	"github.com/subosito/gotenv"
 )
 
-var cfgFile string
-
 func init() {
 	cobra.OnInitialize(initConfig)
-	cmd.RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.toml", "config file path")
 }
 
 func initConfig() {
@@ -23,9 +20,9 @@ func initConfig() {
 	// Tell Viper to use the prefix "CROSS_BLOGGER" for environment variables
 	viper.SetEnvPrefix("CROSS_BLOGGER")
 	// log.Debug(cfgFile)
-	if cfgFile != "" {
+	if cmd.ConfigFile != "" {
 		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
+		viper.SetConfigFile(cmd.ConfigFile)
 	} else {
 		// Use config.yaml in the current working directory.
 		viper.SetConfigFile("./config.toml")
@@ -67,10 +64,10 @@ func initConfig() {
 				},
 			})
 
-			if err := viper.WriteConfigAs(cfgFile); err != nil {
+			if err := viper.WriteConfigAs(cmd.ConfigFile); err != nil {
 				log.Fatal("Failed to write config file:", err)
 			}
-			log.Fatal("Failed to read config file. Created a config file with default values. Please edit the file and run the command again.", "path", cfgFile)
+			log.Fatal("Failed to read config file. Created a config file with default values. Please edit the file and run the command again.", "path", cmd.ConfigFile)
 		} else {
 			log.Fatal("Failed to read config file:", err)
 		}
