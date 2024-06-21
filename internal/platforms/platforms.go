@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/slashtechno/cross-blogger/pkg/oauth"
+	"github.com/slashtechno/cross-blogger/pkg/utils"
 	"github.com/spf13/afero"
 	"go.abhg.dev/goldmark/frontmatter"
 )
@@ -49,11 +50,14 @@ type PushPullOptions struct {
 }
 
 type Frontmatter struct {
+	// TOOD: make frontmatter mappings configurable, somehow
 	Title        string `yaml:"title"`
 	Date         string `yaml:"date"`
 	DateUpdated  string `yaml:"lastmod"`
 	CanonicalUrl string `yaml:"canonicalURL"`
 }
+
+var FrontmatterOptions = []string{"title", "date", "lastmod", "canonicalURL"}
 
 type PostData struct {
 	Title       string
@@ -132,8 +136,14 @@ func (b Blogger) GetBlogId(accessToken string) (string, error) {
 	return id.(string), nil
 }
 func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
-	log.Info("Blogger pull called", "options", options)
-	postPath := strings.Replace(options.PostUrl, b.BlogUrl, "", 1)
+	// TODO: optionally only pull published posts
+	// Compile a regex that matches both http and https schemes
+	regex, err := regexp.Compile(`^https?:\/\/[^\/]+`)
+	if err != nil {
+		return PostData{}, fmt.Errorf("regex compilation error: %v", err)
+	}
+	// Use regex to replace the scheme and domain part of the URL
+	postPath := regex.ReplaceAllString(options.PostUrl, "")
 	client := resty.New()
 	resp, err := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).SetResult(&map[string]interface{}{}).Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts/bypath?path=" + postPath)
 	if err != nil {
@@ -301,19 +311,25 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	} else {
 		// Get the new posts
 		newPosts := []PostData{}
+		// TODO: Make this concurrent
+		// TODO: Don't append a post if it's unpublished
 		for _, p := range posts {
 			post := p.(map[string]interface{})
 			// Check if the post is new
-			if !contains(b.knownPosts, post["id"].(string)) {
+			if !utils.ContainsString(b.knownPosts, post["id"].(string)) {
 				// Add the post to the list of known posts
 				b.knownPosts = append(b.knownPosts, post["id"].(string))
-				// Add the post to the list of new posts
-				newPosts = append(newPosts, PostData{
-					Title: post["title"].(string),
-					Html:  post["content"].(string),
-					// The canonical URL is not set because Blogger does not support setting the canonical URL
-					CanonicalUrl: "",
+				// Add the post to the list of new posts (run Pull)
+				postData, err := b.Pull(PushPullOptions{
+					// Watch() passes a fresh access token
+					AccessToken: options.AccessToken,
+					BlogId:      options.BlogId,
+					PostUrl:     post["url"].(string),
 				})
+				if err != nil {
+					return nil, err
+				}
+				newPosts = append(newPosts, postData)
 			}
 		}
 		return newPosts, nil
@@ -329,7 +345,9 @@ type Markdown struct {
 	// ContentDir, for retrieving, should only be used if treating the passed post path as relative results in no file found
 	ContentDir string
 	GitDir     string
-	Overwrite  bool
+	// Example: []string{"title", "date", "lastmod", "canonicalURL"}
+	FrontmatterSelection []string
+	Overwrite            bool
 }
 
 func (m Markdown) GetName() string { return m.Name }
@@ -374,11 +392,19 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	// After the function returns, close the file
 	defer file.Close()
 	// Create the frontmatter
-	postFrontmatter := Frontmatter{
-		Title:        data.Title,
-		Date:         data.Date.Format(time.RFC3339),
-		DateUpdated:  data.DateUpdated.Format(time.RFC3339),
-		CanonicalUrl: data.CanonicalUrl,
+	// Add the frontmatter fields that are selected
+	postFrontmatter := Frontmatter{}
+	for _, f := range m.FrontmatterSelection {
+		switch f {
+		case "title":
+			postFrontmatter.Title = data.Title
+		case "date":
+			postFrontmatter.Date = data.Date.Format(time.RFC3339)
+		case "lastmod":
+			postFrontmatter.DateUpdated = data.DateUpdated.Format(time.RFC3339)
+		case "canonicalURL":
+			postFrontmatter.CanonicalUrl = data.CanonicalUrl
+		}
 	}
 	// Convert the frontmatter to YAML
 	frontmatterYaml, err := yaml.Marshal(postFrontmatter)
@@ -508,14 +534,31 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 		if !ok || contentDir == "" {
 			return nil, fmt.Errorf("content_dir is required for markdown")
 		}
-		gitDir, _ := destMap["git_dir"].(string)    // If not set, defaults to ""
+		gitDir, _ := destMap["git_dir"].(string) // If not set, defaults to ""
+		// Convert the frontmatter_selection to a slice of strings
+		var frontmatterSelection []string
+		if fmSelection, ok := destMap["frontmatter_selection"].([]interface{}); ok {
+			for _, item := range fmSelection {
+				if str, ok := item.(string); ok {
+					frontmatterSelection = append(frontmatterSelection, str)
+				} else {
+					// Handle the case where the item is not a string
+					log.Warn("Non-string item found in frontmatter_selection", "item", item)
+					// Optionally return an error or continue based on your use case
+				}
+			}
+		} else {
+			log.Warn("frontmatter_selection is not a slice of interfaces or is not set. Defaulting to all frontmatter options", "frontmatter_selection", destMap["frontmatter_selection"])
+			frontmatterSelection = FrontmatterOptions
+		}
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 
 		return &Markdown{
-			Name:       name,
-			ContentDir: contentDir,
-			GitDir:     gitDir,
-			Overwrite:  overwrite,
+			Name:                 name,
+			ContentDir:           contentDir,
+			GitDir:               gitDir,
+			FrontmatterSelection: frontmatterSelection,
+			Overwrite:            overwrite,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown destination type: %s", destMap["type"])
@@ -550,13 +593,4 @@ func CreateSource(sourceMap map[string]interface{}) (Source, error) {
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", sourceMap["type"])
 	}
-}
-
-func contains(slice []string, item string) bool {
-	for _, a := range slice {
-		if a == item {
-			return true
-		}
-	}
-	return false
 }

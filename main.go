@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/slashtechno/cross-blogger/cmd"
+	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/subosito/gotenv"
@@ -45,11 +46,12 @@ func initConfig() {
 					"overwrite": false,
 				},
 				{
-					"name":        "otherblog",
-					"type":        "markdown",
-					"content_dir": "/hugo-site/content/blog",
-					"git_dir":     "/hugo-site",
-					"overwrite":   false,
+					"name":                  "otherblog",
+					"type":                  "markdown",
+					"content_dir":           "/hugo-site/content/blog",
+					"git_dir":               "/hugo-site",
+					"frontmatter_selection": platforms.FrontmatterOptions,
+					"overwrite":             false,
 				},
 			})
 			// Sources
