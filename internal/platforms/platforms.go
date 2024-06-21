@@ -43,6 +43,8 @@ type PushPullOptions struct {
 	PostUrl      string
 	Filepath     string
 	RefreshToken string
+	ClientId     string
+	ClientSecret string
 }
 
 type Frontmatter struct {
@@ -218,7 +220,6 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 }
 
 // Every interval, check for new posts (posts that haven't been seen before) and send them to the postChan channel.
-// I can't get this to work as a pointer receiver because it doesn't satisfy the WatchableSource interface.
 func (b *Blogger) Watch(interval time.Duration, options PushPullOptions, postChan chan<- PostData, errChan chan<- error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -227,7 +228,7 @@ func (b *Blogger) Watch(interval time.Duration, options PushPullOptions, postCha
 		// Fetch new posts from Blogger
 		// Refresh the access token
 		var err error
-		options.AccessToken, _, err = b.Authorize("", "", options.RefreshToken)
+		options.AccessToken, _, err = b.Authorize(options.ClientId, options.ClientSecret, options.RefreshToken)
 		if err != nil {
 			errChan <- err
 			return
@@ -261,9 +262,39 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	}
 	// Assert that posts is a pointer to a map. However, dereference it to get the map
 	posts := (*resp.Result().(*map[string]interface{}))["items"].([]interface{})
-	log.Debug("", "posts", posts)
-	// TODO
-	return nil, nil
+	// log.Debug("", "posts", posts)
+	// Check if the list of known posts is empty
+	if len(b.knownPosts) == 0 {
+		// Add all the posts to the list of known posts
+		for _, p := range posts {
+			post := p.(map[string]interface{})
+			b.knownPosts = append(b.knownPosts, post["id"].(string))
+		}
+		// Return an empty slice because there are no new posts
+		log.Debug("No known posts", "knownPosts", b.knownPosts)
+		return []PostData{}, nil
+	} else {
+		// Get the new posts
+		newPosts := []PostData{}
+		for _, p := range posts {
+			post := p.(map[string]interface{})
+			// Check if the post is new
+			if !contains(b.knownPosts, post["id"].(string)) {
+				// Add the post to the list of known posts
+				b.knownPosts = append(b.knownPosts, post["id"].(string))
+				// Add the post to the list of new posts
+				newPosts = append(newPosts, PostData{
+					Title: post["title"].(string),
+					Html:  post["content"].(string),
+					// The canonical URL is not set because Blogger does not support setting the canonical URL
+					CanonicalUrl: "",
+				})
+			}
+		}
+		return newPosts, nil
+	}
+	// It is not possible to reach this point because the function will return before this point
+	// return nil, errors.New("unreachable")
 }
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
@@ -455,4 +486,13 @@ func CreateSource(sourceMap map[string]interface{}) (Source, error) {
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", sourceMap["type"])
 	}
+}
+
+func contains(slice []string, item string) bool {
+	for _, a := range slice {
+		if a == item {
+			return true
+		}
+	}
+	return false
 }

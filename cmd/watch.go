@@ -58,6 +58,8 @@ var watchCmd = &cobra.Command{
 				AccessToken:  accessToken,
 				BlogId:       blogId,
 				RefreshToken: refreshToken,
+				ClientId:     viper.GetString("google-client-id"),
+				ClientSecret: viper.GetString("google-client-secret"),	
 			}
 		default:
 			log.Fatal("Source type not implemented", "source", source.GetType())
@@ -92,6 +94,6 @@ var watchCmd = &cobra.Command{
 func init() {
 	publishCmd.AddCommand(watchCmd)
 	// The interval can be parsed with the time.ParseDu	ration function
-	watchCmd.Flags().StringP("interval", "i", "1m", "Interval to check for new content")
+	watchCmd.Flags().StringP("interval", "i", "5s", "Interval to check for new content")
 	viper.BindPFlag("interval", watchCmd.Flags().Lookup("interval"))
 }
