@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var ConfigFile string
@@ -39,4 +40,11 @@ func init() {
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	RootCmd.PersistentFlags().StringVar(&ConfigFile, "config", "config.toml", "config file path")
+	RootCmd.MarkPersistentFlagFilename("toml")
+	// Log level
+	RootCmd.PersistentFlags().String("log-level", "", "Set the log level")
+	viper.BindPFlag("log_level", RootCmd.PersistentFlags().Lookup("log-level"))
+	viper.BindEnv("log_level", "CROSS_BLOGGER_LOG_LEVEL")
+	viper.SetDefault("log_level", "info")
+
 }

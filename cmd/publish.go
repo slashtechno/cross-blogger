@@ -92,9 +92,9 @@ func init() {
 	// It will then write the refresh token to the config file, along with any flags or env vars that have been set.
 	// You could always go back and remove those lines and continue using environment variables or flags as it won't write to the config file as long as the refresh token is set
 	// Allow the OAuth stuff to be set via viper
-	viper.BindPFlag("google-client-id", publishCmd.Flags().Lookup("google-client-id"))
-	viper.BindPFlag("google-client-secret", publishCmd.Flags().Lookup("google-client-secret"))
-	viper.BindPFlag("google-refresh-token", publishCmd.Flags().Lookup("google-refresh-token"))
+	viper.BindPFlag("google_client_id", publishCmd.Flags().Lookup("google-client-id"))
+	viper.BindPFlag("google_client_secret", publishCmd.Flags().Lookup("google-client-secret"))
+	viper.BindPFlag("google_refresh_token", publishCmd.Flags().Lookup("google-refresh-token"))
 	// Keep in mind that these should be prefixed with CROSS_BLOGGER
 	viper.BindEnv("google-client-id", "CROSS_BLOGGER_GOOGLE_CLIENT_ID")
 	viper.BindEnv("google-client-secret", "CROSS_BLOGGER_GOOGLE_CLIENT_SECRET")

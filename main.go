@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/fs"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/slashtechno/cross-blogger/cmd"
@@ -12,11 +13,11 @@ import (
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	// Load a .env file if it exists
+	gotenv.Load()
 }
 
 func initConfig() {
-	// Load a .env file if it exists
-	gotenv.Load()
 	// Tell Viper to use the prefix "CROSS_BLOGGER" for environment variables
 	viper.SetEnvPrefix("CROSS_BLOGGER")
 	// log.Debug(cfgFile)
@@ -75,6 +76,19 @@ func initConfig() {
 }
 
 func main() {
-	log.SetLevel(log.DebugLevel)
+
+	switch strings.ToLower(viper.GetString("log_level")) {
+	case "debug":
+		log.SetLevel(log.DebugLevel)
+	case "info":
+		log.SetLevel(log.InfoLevel)
+	case "warn":
+		log.SetLevel(log.WarnLevel)
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	default:
+		log.SetLevel(log.InfoLevel)
+		log.Info("Invalid log level passed, using InfoLevel", "passed", viper.GetString("log_level"))
+	}
 	cmd.Execute()
 }
