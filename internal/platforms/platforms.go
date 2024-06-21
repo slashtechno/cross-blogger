@@ -303,6 +303,7 @@ type Markdown struct {
 	Name string
 	// ContentDir, for retrieving, should only be used if treating the passed post path as relative results in no file found
 	ContentDir string
+	GitDir     string
 	Overwrite  bool
 }
 
@@ -445,12 +446,13 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 		if !ok || contentDir == "" {
 			return nil, fmt.Errorf("content_dir is required for markdown")
 		}
-
+		gitDir, _ := destMap["git_dir"].(string)    // If not set, defaults to ""
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 
 		return &Markdown{
 			Name:       name,
 			ContentDir: contentDir,
+			GitDir:     gitDir,
 			Overwrite:  overwrite,
 		}, nil
 	default:
