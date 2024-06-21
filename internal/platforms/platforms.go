@@ -50,13 +50,17 @@ type PushPullOptions struct {
 
 type Frontmatter struct {
 	Title        string `yaml:"title"`
+	Date         string `yaml:"date"`
+	DateUpdated  string `yaml:"lastmod"`
 	CanonicalUrl string `yaml:"canonicalURL"`
 }
 
 type PostData struct {
-	Title    string
-	Html     string
-	Markdown string
+	Title       string
+	Html        string
+	Markdown    string
+	Date        time.Time
+	DateUpdated time.Time
 	// Other fields that are probably needed are canonical URL, publish date, and description
 	CanonicalUrl string
 }
@@ -138,6 +142,7 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	if resp.StatusCode() != 200 {
 		return PostData{}, fmt.Errorf("failed to get post: %s", resp.String())
 	}
+	log.Debug("Got response", "response", resp.String())
 	// Get the keys "title" and "content" from the response
 	result := (*resp.Result().(*map[string]interface{}))
 	title, ok := result["title"].(string)
@@ -152,7 +157,24 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	if !ok {
 		return PostData{}, fmt.Errorf("url not found in response or is not a string")
 	}
+	// Date published is returned like `"published": "2024-06-19T09:37:00-07:00,`
 	// Convert the HTML to Markdown
+	rfcDate, ok := result["published"].(string)
+	if !ok {
+		return PostData{}, fmt.Errorf("published date not found in response or is not a string")
+	}
+	date, err := time.Parse(time.RFC3339, rfcDate)
+	if err != nil {
+		return PostData{}, err
+	}
+	rfcDateUpdated, ok := result["updated"].(string)
+	if !ok {
+		return PostData{}, fmt.Errorf("updated date not found in response or is not a string")
+	}
+	dateUpdated, err := time.Parse(time.RFC3339, rfcDateUpdated)
+	if err != nil {
+		return PostData{}, err
+	}
 	markdown, err := md.NewConverter("", true, nil).ConvertString(html)
 	if err != nil {
 		return PostData{}, err
@@ -161,6 +183,8 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 		Title:        title,
 		Html:         html,
 		Markdown:     markdown,
+		Date:         date,
+		DateUpdated:  dateUpdated,
 		CanonicalUrl: canonicalUrl,
 	}, nil
 
@@ -352,6 +376,8 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	// Create the frontmatter
 	postFrontmatter := Frontmatter{
 		Title:        data.Title,
+		Date:         data.Date.Format(time.RFC3339),
+		DateUpdated:  data.DateUpdated.Format(time.RFC3339),
 		CanonicalUrl: data.CanonicalUrl,
 	}
 	// Convert the frontmatter to YAML
