@@ -10,8 +10,8 @@ import (
 // watchCmd represents the watch command
 var watchCmd = &cobra.Command{
 	Use:   "watch",
-	Short: "Watch a source for new content and publish it",
-	Long: `Watch a source for new content and publish it.
+	Short: "Act as a headless CMS of sorts by watching a source for new content and publishing it to configured destinations.",
+	Long: `Act as a headless CMS of sorts by watching a source for new content and publishing it to configured destinations.
 	Specify the source with the first positional argument.
 	The second positional argument and on are treated as destination names.
 	Ensure that these are configured in the config file.

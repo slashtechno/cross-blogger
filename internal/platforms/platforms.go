@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/gosimple/slug"
 	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 	"gopkg.in/yaml.v2"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
@@ -20,7 +20,7 @@ import (
 	"github.com/slashtechno/cross-blogger/pkg/oauth"
 	"github.com/slashtechno/cross-blogger/pkg/utils"
 	"github.com/spf13/afero"
-	"go.abhg.dev/goldmark/frontmatter"
+	goldmarkfrontmatter "go.abhg.dev/goldmark/frontmatter"
 )
 
 type Destination interface {
@@ -336,7 +336,6 @@ type Markdown struct {
 	ContentDir string
 	GitDir     string
 	// Example: []string{"title", "date", "lastmod", "canonicalURL"}
-	FrontmatterSelection []string
 	FrontmatterMapping
 	Overwrite bool
 }
@@ -466,24 +465,22 @@ func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
 	markdown := string(data)
 	// Convert the markdown to HTML with Goldmark
 	// Use the Frontmatter extension to get the frontmatter
-	mdParser := goldmark.New(goldmark.WithExtensions(&frontmatter.Extender{}))
-	ctx := parser.NewContext()
+	mdParser := goldmark.New(goldmark.WithExtensions(&goldmarkfrontmatter.Extender{
+		Mode: goldmarkfrontmatter.SetMetadata,
+	}))
 	var buf bytes.Buffer
-	err = mdParser.Convert([]byte(markdown), &buf, parser.WithContext(ctx))
+	parsedDoc := mdParser.Parser().Parse(text.NewReader([]byte(markdown)))
+	err = mdParser.Renderer().Render(&buf, data, parsedDoc)
 	if err != nil {
 		return PostData{}, err
 	}
 	// Get the frontmatter
-	markdownFrontmatter := Frontmatter{}
-	frontmatterData := frontmatter.Get(ctx)
-	if err := frontmatterData.Decode(&markdownFrontmatter); err != nil {
-		return PostData{}, err
-	}
+	frontmatterObject := FrontmatterFromMap(parsedDoc.OwnerDocument().Meta(), m.FrontmatterMapping)
 	// Check if title and canonical URL are set
-	if markdownFrontmatter.Title == "" {
+	if frontmatterObject.Title == "" {
 		return PostData{}, fmt.Errorf("title is required in frontmatter")
 	}
-	if markdownFrontmatter.CanonicalUrl == "" {
+	if frontmatterObject.CanonicalUrl == "" {
 		log.Warn("canonical_url is not set in frontmatter")
 	}
 	// Convert the HTML to Markdown
@@ -495,10 +492,10 @@ func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
 		return PostData{}, err
 	}
 	return PostData{
-		Title:        markdownFrontmatter.Title,
+		Title:        frontmatterObject.Title,
 		Html:         html,
 		Markdown:     markdown,
-		CanonicalUrl: markdownFrontmatter.CanonicalUrl,
+		CanonicalUrl: frontmatterObject.CanonicalUrl,
 	}, nil
 
 }
@@ -573,9 +570,19 @@ func CreateSource(sourceMap map[string]interface{}) (Source, error) {
 	case "markdown":
 		// If the content_dir is not set, set it to null as its not required
 		contentDir, _ := sourceMap["content_dir"].(string)
+		// Assert that frontmatter_mapping is a map of strings to strings
+		frontmatterMapping, err := FrontmatterMappingFromInterface(sourceMap["frontmatter_mapping"])
+		if err != nil {
+			log.Warn("Failed to get frontmatter mapping. Using default", "error", err, "default", FrontMatterMappings)
+			frontmatterMapping, err = FrontmatterMappingFromInterface(FrontMatterMappings)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return &Markdown{
-			Name:       name,
-			ContentDir: contentDir,
+			Name:               name,
+			ContentDir:         contentDir,
+			FrontmatterMapping: *frontmatterMapping,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", sourceMap["type"])

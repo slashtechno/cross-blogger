@@ -14,7 +14,7 @@ Either run `go install github.com/slashtechno/cross-blogger@latest`, follow the 
 Sources and destinations should first be configured in the `config.toml` file.  
 For Google OAuth, the `--client-id` and `--client-secret` flags are required but can be set as environment variables (`CROSS_BLOGGER_GOOGLE_CLIENT_ID`/`CROSS_BLOGGER_GOOGLE_CLIENT_SECRET`). However these can also be set in the `config.toml` file, passed as environment variables, or put in a `.env` file. When a refresh token is not provided, the program will commence the OAuth flow. This will write the refresh token, along with any other configuration, to the `config.toml` file. If you prefer to use other methods to pass the credentials, you can remove the lines and use the other methods.  
 #### Help Output  
-From `cross-blogger publish --help`  
+From `cross-blogger publish --help` (run `cross-blogger --help` for the root help output):  
 ```text
 Publish to a destination from a source. 
         Specify the source with the first positional argument. 
@@ -24,6 +24,10 @@ Publish to a destination from a source.
 
 Usage:
   cross-blogger publish [flags]
+  cross-blogger publish [command]
+
+Available Commands:
+  watch       Act as a headless CMS of sorts by watching a source for new content and publishing it to configured destinations.
 
 Flags:
   -r, --dry-run                       Don't actually publish
@@ -33,5 +37,8 @@ Flags:
   -h, --help                          help for publish
 
 Global Flags:
-      --config string   config file path (default "config.toml")
+      --config string      config file path (default "config.toml")
+      --log-level string   Set the log level
+
+Use "cross-blogger publish [command] --help" for more information about a command.
 ```  

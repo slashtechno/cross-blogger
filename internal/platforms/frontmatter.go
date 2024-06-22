@@ -2,7 +2,6 @@ package platforms
 
 import "errors"
 
-var FrontmatterOptions = []string{"title", "date", "lastmod", "canonicalURL"}
 
 // This is more just a set of defaults compatible with Hugo's frontmatter
 var FrontMatterMappings = map[string]string{"title": "title", "date": "date", "date_updated": "lastmod", "canonical_url": "canonicalURL"}
@@ -68,11 +67,19 @@ func FrontmatterMappingFromInterface(m interface{}) (*FrontmatterMapping, error)
 }
 
 // Take a map and return a Frontmatter struct, taking FrontmatterMapping into account
-func FrontmatterFromMap(m map[string]interface{}) *Frontmatter {
-	return &Frontmatter{
-		Title:        m[FrontMatterMappings["title"]].(string),
-		Date:         m[FrontMatterMappings["date"]].(string),
-		DateUpdated:  m[FrontMatterMappings["date_updated"]].(string),
-		CanonicalUrl: m[FrontMatterMappings["canonical_url"]].(string),
+func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping FrontmatterMapping) *Frontmatter {
+	frontmatterObjet := &Frontmatter{}
+	if title, ok := m[frontmatterMapping.Title]; ok {
+		frontmatterObjet.Title = title.(string)
 	}
+	if date, ok := m[frontmatterMapping.Date]; ok {
+		frontmatterObjet.Date = date.(string)
+	}
+	if lastUpdated, ok := m[frontmatterMapping.LastUpdated]; ok {
+		frontmatterObjet.DateUpdated = lastUpdated.(string)
+	}
+	if canonicalURL, ok := m[frontmatterMapping.CanonicalURL]; ok {
+		frontmatterObjet.CanonicalUrl = canonicalURL.(string)
+	}
+	return frontmatterObjet
 }

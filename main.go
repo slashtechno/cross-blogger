@@ -62,9 +62,10 @@ func initConfig() {
 					"blog_url": "https://example.com",
 				},
 				{
-					"name":        "aBlogInMarkdown",
-					"type":        "markdown",
-					"content_dir": "content",
+					"name":                "aBlogInMarkdown",
+					"type":                "markdown",
+					"content_dir":         "content",
+					"frontmatter_mapping": platforms.FrontMatterMappings,
 				},
 			})
 

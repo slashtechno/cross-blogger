@@ -1,0 +1,37 @@
+# type is a required field that specifies the type of the source or destination.
+# name is the name of the source or destination. It is ud to refer to the source or destination when running the command.
+# overwrite is a boolean field that specifies whether to overwrite the file/post if it already exists. This is done by removing old files/posts that have the same title.
+# blog_url is the URL of the blog
+# content_dir is the directory where the markdown files are located
+# git_dir, if set, will be used to push files to a Git repository. Normally, if you're running something like Hugo, this would be the root directory of your Hugo site (the top-level directory that contains .git)
+# frontmatter_mapping is a table that can be used to customize the frontmatter (metadata). This is useful if your Hugo theme uses different frontmatter keys or if it's a frontmatter key that's not "officially" supported by Hugo and it's up to the theme to decide what key to use. I use Hugo as an example but in reality, this option could probably be used to make this compatible with any static site generator that uses frontmatter.
+[[destinations]]
+name = 'markdown'
+type = 'markdown'
+content_dir = 'output_markdown'
+git_dir = 'output_markdown'
+overwrite = true
+[destinations.frontmatter_mapping]
+canonical_url = ''
+date = 'date'
+date_updated = 'lastmod'
+title = 'title'
+[[destinations]]
+type = 'blogger'
+name = 'blogger'
+blog_url = 'https://example.com'
+overwrite = true
+[[sources]]
+blog_url = 'https://example.com'
+name = 'blogger'
+type = 'blogger'
+[[sources]]
+name = 'markdown'
+type = 'markdown'
+content_dir = 'input_markdown'
+
+[sources.frontmatter_mapping]
+canonical_url = 'canonicalURL'
+date = 'date'
+date_updated = 'lastmod'
+title = 'thisisatitle'
