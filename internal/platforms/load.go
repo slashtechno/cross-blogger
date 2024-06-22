@@ -4,6 +4,7 @@ import (
 	"errors"
 )
 
+
 // Load a slice of Destinations and Sources from values passed which the calling module shoukd have read from config
 // If selectedDestinations is empty or nil, all destinations are loaded
 func Load(sources interface{}, destinations interface{}, selectedSources []string, selectedDestinations []string) ([]Source, []Destination, error) {

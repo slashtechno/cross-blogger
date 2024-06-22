@@ -46,12 +46,12 @@ func initConfig() {
 					"overwrite": false,
 				},
 				{
-					"name":                  "otherblog",
-					"type":                  "markdown",
-					"content_dir":           "/hugo-site/content/blog",
-					"git_dir":               "/hugo-site",
-					"frontmatter_selection": platforms.FrontmatterOptions,
-					"overwrite":             false,
+					"name":                "otherblog",
+					"type":                "markdown",
+					"content_dir":         "/hugo-site/content/blog",
+					"git_dir":             "/hugo-site",
+					"frontmatter_mapping": platforms.FrontMatterMappings,
+					"overwrite":           false,
 				},
 			})
 			// Sources

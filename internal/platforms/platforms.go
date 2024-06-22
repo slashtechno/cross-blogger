@@ -49,16 +49,6 @@ type PushPullOptions struct {
 	ClientSecret string
 }
 
-type Frontmatter struct {
-	// TOOD: make frontmatter mappings configurable, somehow
-	Title        string `yaml:"title"`
-	Date         string `yaml:"date"`
-	DateUpdated  string `yaml:"lastmod"`
-	CanonicalUrl string `yaml:"canonicalURL"`
-}
-
-var FrontmatterOptions = []string{"title", "date", "lastmod", "canonicalURL"}
-
 type PostData struct {
 	Title       string
 	Html        string
@@ -347,7 +337,8 @@ type Markdown struct {
 	GitDir     string
 	// Example: []string{"title", "date", "lastmod", "canonicalURL"}
 	FrontmatterSelection []string
-	Overwrite            bool
+	FrontmatterMapping
+	Overwrite bool
 }
 
 func (m Markdown) GetName() string { return m.Name }
@@ -393,21 +384,15 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	defer file.Close()
 	// Create the frontmatter
 	// Add the frontmatter fields that are selected
-	postFrontmatter := Frontmatter{}
-	for _, f := range m.FrontmatterSelection {
-		switch f {
-		case "title":
-			postFrontmatter.Title = data.Title
-		case "date":
-			postFrontmatter.Date = data.Date.Format(time.RFC3339)
-		case "lastmod":
-			postFrontmatter.DateUpdated = data.DateUpdated.Format(time.RFC3339)
-		case "canonicalURL":
-			postFrontmatter.CanonicalUrl = data.CanonicalUrl
-		}
+	postFrontmatter := Frontmatter{
+		Title:        data.Title,
+		Date:         data.Date.Format(time.RFC3339),
+		DateUpdated:  data.DateUpdated.Format(time.RFC3339),
+		CanonicalUrl: data.CanonicalUrl,
 	}
+
 	// Convert the frontmatter to YAML
-	frontmatterYaml, err := yaml.Marshal(postFrontmatter)
+	frontmatterYaml, err := yaml.Marshal(postFrontmatter.ToMap(m.FrontmatterMapping))
 	if err != nil {
 		return err
 	}
@@ -535,30 +520,23 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 			return nil, fmt.Errorf("content_dir is required for markdown")
 		}
 		gitDir, _ := destMap["git_dir"].(string) // If not set, defaults to ""
-		// Convert the frontmatter_selection to a slice of strings
-		var frontmatterSelection []string
-		if fmSelection, ok := destMap["frontmatter_selection"].([]interface{}); ok {
-			for _, item := range fmSelection {
-				if str, ok := item.(string); ok {
-					frontmatterSelection = append(frontmatterSelection, str)
-				} else {
-					// Handle the case where the item is not a string
-					log.Warn("Non-string item found in frontmatter_selection", "item", item)
-					// Optionally return an error or continue based on your use case
-				}
+		// Assert that frontmatter_mapping is a map of strings to strings
+		frontmatterMapping, err := FrontmatterMappingFromInterface(destMap["frontmatter_mapping"])
+		if err != nil {
+			log.Warn("Failed to get frontmatter mapping. Using default", "error", err, "default", FrontMatterMappings)
+			frontmatterMapping, err = FrontmatterMappingFromInterface(FrontMatterMappings)
+			if err != nil {
+				return nil, err
 			}
-		} else {
-			log.Warn("frontmatter_selection is not a slice of interfaces or is not set. Defaulting to all frontmatter options", "frontmatter_selection", destMap["frontmatter_selection"])
-			frontmatterSelection = FrontmatterOptions
 		}
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 
 		return &Markdown{
-			Name:                 name,
-			ContentDir:           contentDir,
-			GitDir:               gitDir,
-			FrontmatterSelection: frontmatterSelection,
-			Overwrite:            overwrite,
+			Name:               name,
+			ContentDir:         contentDir,
+			GitDir:             gitDir,
+			FrontmatterMapping: *frontmatterMapping,
+			Overwrite:          overwrite,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown destination type: %s", destMap["type"])
