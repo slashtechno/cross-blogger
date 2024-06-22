@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/charmbracelet/log"
+	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,7 +23,7 @@ var watchCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the sources and destinations
 		// sourceSlice, _, err := platforms.Load(viper.Get("sources"), viper.Get("destinations"), []string{args[0]}, args[1:])
-		sourceSlice, destinationSlice, err := platforms.Load(viper.Get("sources"), viper.Get("destinations"), []string{args[0]}, args[1:])
+		sourceSlice, destinationSlice, err := platforms.Load(internal.ConfigViper.Get("sources"), internal.ConfigViper.Get("destinations"), []string{args[0]}, args[1:])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -57,8 +58,8 @@ var watchCmd = &cobra.Command{
 				AccessToken:  accessToken,
 				BlogId:       blogId,
 				RefreshToken: refreshToken,
-				ClientId:     viper.GetString("google-client-id"),
-				ClientSecret: viper.GetString("google-client-secret"),
+				ClientId:     internal.CredentialViper.GetString("google-client-id"),
+				ClientSecret: internal.CredentialViper.GetString("google-client-secret"),
 			}
 		default:
 			log.Fatal("Source type not implemented", "source", source.GetType())
@@ -70,7 +71,7 @@ var watchCmd = &cobra.Command{
 
 		// Start watching the source in a separate goroutine
 		// This will send new posts to postChan and errors to errChan
-		go watcher.Watch(viper.GetDuration("interval"), options, postChan, errChan)
+		go watcher.Watch(internal.CredentialViper.GetDuration("interval"), options, postChan, errChan)
 
 		// Start an infinite loop
 		for {
@@ -97,6 +98,6 @@ var watchCmd = &cobra.Command{
 func init() {
 	publishCmd.AddCommand(watchCmd)
 	// The interval can be parsed with the time.ParseDu	ration function
-	watchCmd.Flags().StringP("interval", "i", "5s", "Interval to check for new content")
-	viper.BindPFlag("interval", watchCmd.Flags().Lookup("interval"))
+	watchCmd.Flags().StringP("interval", "i", "30s", "Interval to check for new content")
+	internal.ConfigViper.BindPFlag("interval", watchCmd.Flags().Lookup("interval"))
 }

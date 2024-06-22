@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/log"
+	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var publishCmd = &cobra.Command{
@@ -22,8 +22,8 @@ var publishCmd = &cobra.Command{
 	// Arg 3+: Destinations
 	Args: cobra.MinimumNArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
-		destinations := viper.Get("destinations")
-		sources := viper.Get("sources")
+		destinations := internal.ConfigViper.Get("destinations")
+		sources := internal.ConfigViper.Get("sources")
 		if destinations == nil {
 			log.Fatal("Failed to get destinations from config")
 		}
@@ -51,7 +51,7 @@ var publishCmd = &cobra.Command{
 		var options platforms.PushPullOptions
 		switch source.GetType() {
 		case "blogger":
-			_, accessToken, blogId, _, err := prepareBlogger(source, nil, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
+			_, accessToken, blogId, _, err := prepareBlogger(source, nil, internal.CredentialViper.GetString("google-client-id"), internal.CredentialViper.GetString("google-client-secret"), internal.CredentialViper.GetString("google-refresh-token"))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -74,17 +74,19 @@ var publishCmd = &cobra.Command{
 		log.Info("Successfully pulled data", "title", postData.Title, "url", postData.CanonicalUrl, "markdown", postData.Markdown)
 
 		// For each destination, push the data
-		err = pushToDestinations(postData, destinationSlice, viper.GetBool("dry-run"))
+		err = pushToDestinations(postData, destinationSlice, dryRun)
 		if err != nil {
 			log.Fatal(err)
 		}
 	},
 }
 
+var dryRun bool
+
 func init() {
 	RootCmd.AddCommand(publishCmd)
 	// publishCmd.Flags().StringP("title", "t", "", "Specify custom title instead of using the default")
-	publishCmd.PersistentFlags().BoolP("dry-run", "r", false, "Don't actually publish")
+	publishCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Dry run - don't actually push the data")
 	publishCmd.PersistentFlags().String("google-client-id", "", "Google OAuth client ID")
 	publishCmd.PersistentFlags().String("google-client-secret", "", "Google OAuth client secret")
 	publishCmd.PersistentFlags().String("google-refresh-token", "", "Google OAuth refresh token")
@@ -92,13 +94,13 @@ func init() {
 	// It will then write the refresh token to the config file, along with any flags or env vars that have been set.
 	// You could always go back and remove those lines and continue using environment variables or flags as it won't write to the config file as long as the refresh token is set
 	// Allow the OAuth stuff to be set via viper
-	viper.BindPFlag("google_client_id", publishCmd.Flags().Lookup("google-client-id"))
-	viper.BindPFlag("google_client_secret", publishCmd.Flags().Lookup("google-client-secret"))
-	viper.BindPFlag("google_refresh_token", publishCmd.Flags().Lookup("google-refresh-token"))
+	internal.CredentialViper.BindPFlag("google_client_id", publishCmd.Flags().Lookup("google-client-id"))
+	internal.CredentialViper.BindPFlag("google_client_secret", publishCmd.Flags().Lookup("google-client-secret"))
+	internal.CredentialViper.BindPFlag("google_refresh_token", publishCmd.Flags().Lookup("google-refresh-token"))
 	// Keep in mind that these should be prefixed with CROSS_BLOGGER
-	viper.BindEnv("google-client-id", "CROSS_BLOGGER_GOOGLE_CLIENT_ID")
-	viper.BindEnv("google-client-secret", "CROSS_BLOGGER_GOOGLE_CLIENT_SECRET")
-	viper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
+	internal.CredentialViper.BindEnv("google-client-id", "CROSS_BLOGGER_GOOGLE_CLIENT_ID")
+	internal.CredentialViper.BindEnv("google-client-secret", "CROSS_BLOGGER_GOOGLE_CLIENT_SECRET")
+	internal.CredentialViper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
 }
 
 // Return the Blogger object and a string with the access token, the blog ID, a refresh token, and an error if one occurred
@@ -137,10 +139,10 @@ func prepareBlogger(source platforms.Source, destination platforms.Destination, 
 		}
 		// Write the refresh token to the config file
 		log.Info("Writing refresh token to Viper")
-		viper.Set("google-refresh-token", refreshToken)
+		internal.CredentialViper.Set("google-refresh-token", refreshToken)
 		// TODO: Use multipke vipers - one for the config file and one for flags (credentials)
 		// The flag viper should be .env only
-		err = viper.WriteConfig()
+		err = internal.CredentialViper.WriteConfig()
 		if err != nil {
 			return platforms.Blogger{}, "", "", "", err
 		}
@@ -169,7 +171,7 @@ func pushToDestinations(postData platforms.PostData, destinationSlice []platform
 			options = platforms.PushPullOptions{}
 
 		case "blogger":
-			_, accessToken, blogId, _, err := prepareBlogger(nil, destination, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
+			_, accessToken, blogId, _, err := prepareBlogger(nil, destination, internal.CredentialViper.GetString("google-client-id"), internal.CredentialViper.GetString("google-client-secret"), internal.CredentialViper.GetString("google-refresh-token"))
 			if err != nil {
 				return err
 			}

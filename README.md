@@ -15,7 +15,7 @@ Either run `go install github.com/slashtechno/cross-blogger@latest`, follow the 
 
 ### Usage  
 Sources and destinations should first be configured in the `config.toml` file.  
-For Google OAuth, the `--client-id` and `--client-secret` flags are required but can be set as environment variables (`CROSS_BLOGGER_GOOGLE_CLIENT_ID`/`CROSS_BLOGGER_GOOGLE_CLIENT_SECRET`). However these can also be set in the `config.toml` file, passed as environment variables, or put in a `.env` file. When a refresh token is not provided, the program will commence the OAuth flow. This will write the refresh token, along with any other configuration, to the `config.toml` file. If you prefer to use other methods to pass the credentials, you can remove the lines and use the other methods.  
+By default, `credentials.yaml` is used to store the Google OAuth credentials and `config.toml` is used to store the configuration. These will be generated with placeholders/defaults if they do not exist. You can specify both the path to the credentials file and the path to the config file using the `--credentials-file` and `--config` flags. The file extension will dictate the format of the file. Command-line flags can also be used. Environment variables can be used for credentials and the log level although they should be prefixed with `CROSS_BLOGGER_`. If credentials are not provided through the credentials file **and the refresh token is not passed**, the credentials will be written to the credentials file as a byproduct of the refresh token being stored. It's always possible to just pass the refresh token, once obtained, some other way to prevent the credentials from being written. 
 #### Help Output  
 From `cross-blogger publish --help` (run `cross-blogger --help` for the root help output):  
 ```text
@@ -33,15 +33,16 @@ Available Commands:
   watch       Act as a headless CMS of sorts by watching a source for new content and publishing it to configured destinations.
 
 Flags:
-  -r, --dry-run                       Don't actually publish
+      --dry-run                       Dry run - don't actually push the data
       --google-client-id string       Google OAuth client ID
       --google-client-secret string   Google OAuth client secret
       --google-refresh-token string   Google OAuth refresh token
   -h, --help                          help for publish
 
 Global Flags:
-      --config string      config file path (default "config.toml")
-      --log-level string   Set the log level
+      --config string             config file path (default "config.toml")
+      --credentials-file string   credentials file path (default "credentials.yaml")
+      --log-level string          Set the log level
 
 Use "cross-blogger publish [command] --help" for more information about a command.
 ```  
