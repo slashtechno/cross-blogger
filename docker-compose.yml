@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  cross-blogger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./config:/app/config
+    command: ["--config", "/app/config/config.toml", "--credentials-file", "/app/config/credentials.yaml", "publish", "watch"]

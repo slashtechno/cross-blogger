@@ -15,9 +15,7 @@ var RootCmd = &cobra.Command{
 	Use:   "cross-blogger",
 	Short: "A utility to cross-publish content between different platforms",
 	Long: `cross-blogger is a utility to cross-publish content between different platforms.
-	Viper's AutomaticEnv is enabled, so you can set environment variables with the prefix "CROSS_BLOGGER" to override config values.
-	By default, the files for storing credentials and configuration are separate.
-	Environment variables can be set (via .env as well) but the credentials configuration will be written to the file when the refresh token is stored. This shouldn't matter too much as environment variable support is mostly meant for running in an environment such as Docker.`,
+	By default, the files for storing credentials and configuration are separate.`,
 
 	// Uncomment the following line if your bare application
 	// has an action associated with it:

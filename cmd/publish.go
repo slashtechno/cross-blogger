@@ -140,7 +140,6 @@ func prepareBlogger(source platforms.Source, destination platforms.Destination, 
 		// Write the refresh token to the config file
 		log.Info("Writing refresh token to Viper")
 		internal.CredentialViper.Set("google-refresh-token", refreshToken)
-		// TODO: Use multipke vipers - one for the config file and one for flags (credentials)
 		// The flag viper should be .env only
 		err = internal.CredentialViper.WriteConfig()
 		if err != nil {

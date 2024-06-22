@@ -63,7 +63,6 @@ func (b Blogger) GetBlogId(accessToken string) (string, error) {
 	return id.(string), nil
 }
 func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
-	// TODO: optionally only pull published posts
 	// Compile a regex that matches both http and https schemes
 	regex, err := regexp.Compile(`^https?:\/\/[^\/]+`)
 	if err != nil {
