@@ -50,7 +50,7 @@ func init() {
 	// Log level
 	RootCmd.PersistentFlags().String("log-level", "", "Set the log level")
 	internal.CredentialViper.BindPFlag("log_level", RootCmd.PersistentFlags().Lookup("log-level"))
-	internal.CredentialViper.BindEnv("log_level", "CROSS_BLOGGER_LOG_LEVEL")
+	internal.ConfigViper.BindEnv("log_level", "CROSS_BLOGGER_LOG_LEVEL")
 	internal.ConfigViper.SetDefault("log_level", "info")
 
 }

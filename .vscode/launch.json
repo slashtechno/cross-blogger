@@ -26,7 +26,7 @@
             "request": "launch",
             "program": "${workspaceFolder}",
             // https://www.blogger.com/edit-profile.g
-            "args": ["publish", "watch", "blogger", "${input:Destination}"],
+            "args": ["publish", "watch", "--interval", "5s", "blogger", "${input:Destination}"],
             // "envFile": "${workspaceFolder}/.env",
             "console": "integratedTerminal"
         },

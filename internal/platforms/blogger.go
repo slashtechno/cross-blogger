@@ -218,6 +218,8 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	resp, err := client.R().
 		SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).
 		SetResult(&map[string]interface{}{}).
+		SetQueryParam("fetchBodies", "true").
+		SetQueryParam("status", "LIVE").
 		Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts")
 	if err != nil {
 		return nil, err
@@ -239,7 +241,26 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 		// Get the new posts
 		newPosts := []PostData{}
 		// TODO: Make this concurrent
-		// TODO: Don't append a post if it's unpublished
+
+		// Check if there are any posts known to the program but that are no longer live
+		// If a post is no longer live, remove it from the list of known posts
+		for _, knownPost := range b.knownPosts {
+			found := false
+			for _, p := range posts {
+				post := p.(map[string]interface{})
+				if post["id"].(string) == knownPost {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Remove the post from the list of known posts
+				log.Info("Removing post from known posts", "post", knownPost)
+				b.knownPosts = utils.RemoveString(b.knownPosts, knownPost)
+			}
+		}
+
+		// Get the postData for new posts
 		for _, p := range posts {
 			post := p.(map[string]interface{})
 			// Check if the post is new

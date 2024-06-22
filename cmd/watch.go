@@ -5,7 +5,6 @@ import (
 	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // watchCmd represents the watch command
@@ -50,7 +49,7 @@ var watchCmd = &cobra.Command{
 		var options platforms.PushPullOptions
 		switch source.GetType() {
 		case "blogger":
-			_, accessToken, blogId, refreshToken, err := prepareBlogger(source, nil, viper.GetString("google-client-id"), viper.GetString("google-client-secret"), viper.GetString("google-refresh-token"))
+			_, accessToken, blogId, refreshToken, err := prepareBlogger(source, nil, internal.CredentialViper.GetString("google-client-id"), internal.CredentialViper.GetString("google-client-secret"), internal.CredentialViper.GetString("google-refresh-token"))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -71,7 +70,7 @@ var watchCmd = &cobra.Command{
 
 		// Start watching the source in a separate goroutine
 		// This will send new posts to postChan and errors to errChan
-		go watcher.Watch(internal.CredentialViper.GetDuration("interval"), options, postChan, errChan)
+		go watcher.Watch(internal.ConfigViper.GetDuration("interval"), options, postChan, errChan)
 
 		// Start an infinite loop
 		for {
@@ -81,7 +80,8 @@ var watchCmd = &cobra.Command{
 			case post := <-postChan:
 				// Log the new post
 				log.Info("New post", "post", post)
-				err := pushToDestinations(post, destinationSlice, viper.GetBool("dry-run"))
+				err := pushToDestinations(post, destinationSlice, false)
+
 				if err != nil {
 					log.Error("Error", "error", err)
 				}
