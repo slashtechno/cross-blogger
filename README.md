@@ -1,5 +1,8 @@
 # cross-blogger  
-Soon-to-be headless CMS for static site generators powered by Google's Blogger.
+Headless CMS for static site generators powered by Google's Blogger.
+It can be used, at the time of writing, to publish **between** the following destinations. However, the intention is to output to static site generators, especially Hugo.  
+- Blogger  
+- Markdown (with frontmatter)  
 
 ### Installation  
 #### Compiled Binaries  

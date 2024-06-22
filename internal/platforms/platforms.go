@@ -433,7 +433,7 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 			return err
 		}
 		// Commit the changes
-		commitHash, err := repoWorktree.Commit("Add "+slug+".md", &git.CommitOptions{})
+		commitHash, err := repoWorktree.Commit("(Re-)publish "+slug+".md", &git.CommitOptions{})
 		if err != nil {
 			return err
 		}
