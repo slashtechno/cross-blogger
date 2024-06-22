@@ -385,12 +385,21 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	// Create the frontmatter
 	// Add the frontmatter fields that are selected
 	postFrontmatter := Frontmatter{
-		Title:        data.Title,
-		Date:         data.Date.Format(time.RFC3339),
-		DateUpdated:  data.DateUpdated.Format(time.RFC3339),
+		Title: data.Title,
+		// Date:         data.Date.Format(time.RFC3339),
+		// DateUpdated:  data.DateUpdated.Format(time.RFC3339),
 		CanonicalUrl: data.CanonicalUrl,
 	}
 
+	// Only add Date if it's not the zero value
+	if !data.Date.IsZero() {
+		postFrontmatter.Date = data.Date.Format(time.RFC3339)
+	}
+
+	// Only add DateUpdated if it's not the zero value
+	if !data.DateUpdated.IsZero() {
+		postFrontmatter.DateUpdated = data.DateUpdated.Format(time.RFC3339)
+	}
 	// Convert the frontmatter to YAML
 	frontmatterYaml, err := yaml.Marshal(postFrontmatter.ToMap(m.FrontmatterMapping))
 	if err != nil {

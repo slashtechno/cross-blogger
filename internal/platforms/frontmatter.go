@@ -24,12 +24,27 @@ type FrontmatterMapping struct {
 
 // Take a Frontmatter struct and taking FrontmatterMapping into account, return a map ready to be marshaled into YAML
 func (f *Frontmatter) ToMap(frontmatterMapping FrontmatterMapping) map[string]interface{} {
-	return map[string]interface{}{
-		frontmatterMapping.Title:        f.Title,
-		frontmatterMapping.Date:         f.Date,
-		frontmatterMapping.LastUpdated:  f.DateUpdated,
-		frontmatterMapping.CanonicalURL: f.CanonicalUrl,
+	// frontmatterAsMap := map[string]interface{}{
+	// 	frontmatterMapping.Title:        f.Title,
+	// 	frontmatterMapping.Date:         f.Date,
+	// 	frontmatterMapping.LastUpdated:  f.DateUpdated,
+	// 	frontmatterMapping.CanonicalURL: f.CanonicalUrl,
+	// }
+	// As long as BOTH the key and value are not empty, add them to the map
+	frontmatterAsMap := make(map[string]interface{})
+	if f.Title != "" && frontmatterMapping.Title != "" {
+		frontmatterAsMap[frontmatterMapping.Title] = f.Title
 	}
+	if f.Date != "" && frontmatterMapping.Date != "" {
+		frontmatterAsMap[frontmatterMapping.Date] = f.Date
+	}
+	if f.DateUpdated != "" && frontmatterMapping.LastUpdated != "" {
+		frontmatterAsMap[frontmatterMapping.LastUpdated] = f.DateUpdated
+	}
+	if f.CanonicalUrl != "" && frontmatterMapping.CanonicalURL != "" {
+		frontmatterAsMap[frontmatterMapping.CanonicalURL] = f.CanonicalUrl
+	}
+	return frontmatterAsMap
 }
 
 // Convert a frontmatter_mapping (interface{} due to how Viper works) to a FrontmatterMapping struct
