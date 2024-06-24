@@ -1,8 +1,10 @@
 package platforms
 
 import (
+	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
@@ -10,6 +12,9 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/slashtechno/cross-blogger/pkg/oauth"
 	"github.com/slashtechno/cross-blogger/pkg/utils"
+	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/ollama"
+	"github.com/tmc/langchaingo/llms/openai"
 )
 
 // Return the access token, refresh token (if one was not provided), and an error (if one occurred).
@@ -115,12 +120,52 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	if err != nil {
 		return PostData{}, err
 	}
+	// If GenerateLlmDescriptions is true, generate descriptions for the post
+	var postDescription string
+	var llmImplementation llms.LLM
+	prompt := fmt.Sprintf("The following is a blog post titled \"%s\" with the content:\n\n%s\n\nThe description of the post is:", title, markdown)
+	if b.GenerateLlmDescriptions {
+		switch strings.ToLower(options.LlmProvider) {
+		case "openai":
+			// If the API key is not set warn
+			// If the base URL or model is not set, return an error
+			if options.LlmApiKey == "" {
+				log.Warn("No key for an OpenAI-compatible API was provided")
+			}
+			if options.LlmBaseUrl == "" || options.LlmModel == "" {
+				return PostData{}, fmt.Errorf("OpenAI base URL and model are required")
+			}
+			llmImplementation, err = openai.New(openai.WithBaseURL(options.LlmBaseUrl), openai.WithModel(options.LlmModel), openai.WithToken(options.LlmApiKey))
+			if err != nil {
+				return PostData{}, err
+			}
+		case "ollama":
+			// If base URL is set, use that. Otherwise, use http://localhost:11434
+			baseUrl := options.LlmBaseUrl
+			if baseUrl == "" {
+				baseUrl = "http://localhost:11434"
+			}
+			llmImplementation, err = ollama.New(ollama.WithServerURL(baseUrl), ollama.WithModel(options.LlmModel))
+			if err != nil {
+				return PostData{}, err
+			}
+		default:
+			return PostData{}, fmt.Errorf("invalid LLM platform")
+		}
+		ctx := context.Background()
+		postDescription, err = llms.GenerateFromSinglePrompt(ctx, llmImplementation, prompt)
+		if err != nil {
+			return PostData{}, err
+		}
+	}
+
 	return PostData{
 		Title:        title,
 		Html:         html,
 		Markdown:     markdown,
 		Date:         date,
 		DateUpdated:  dateUpdated,
+		Description:  postDescription,
 		CanonicalUrl: canonicalUrl,
 	}, nil
 

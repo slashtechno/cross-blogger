@@ -49,7 +49,7 @@ var watchCmd = &cobra.Command{
 		var options platforms.PushPullOptions
 		switch source.GetType() {
 		case "blogger":
-			_, accessToken, blogId, refreshToken, err := prepareBlogger(source, nil, internal.CredentialViper.GetString("google-client-id"), internal.CredentialViper.GetString("google-client-secret"), internal.CredentialViper.GetString("google-refresh-token"))
+			_, accessToken, blogId, refreshToken, err := prepareBlogger(source, nil, internal.CredentialViper.GetString("google_client_id"), internal.CredentialViper.GetString("google_client_secret"), internal.CredentialViper.GetString("google_refresh_token"))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -57,8 +57,8 @@ var watchCmd = &cobra.Command{
 				AccessToken:  accessToken,
 				BlogId:       blogId,
 				RefreshToken: refreshToken,
-				ClientId:     internal.CredentialViper.GetString("google-client-id"),
-				ClientSecret: internal.CredentialViper.GetString("google-client-secret"),
+				ClientId:     internal.CredentialViper.GetString("google_client_id"),
+				ClientSecret: internal.CredentialViper.GetString("google_client_secret"),
 			}
 		default:
 			log.Fatal("Source type not implemented", "source", source.GetType())

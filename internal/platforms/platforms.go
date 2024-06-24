@@ -31,7 +31,7 @@ type PushPullOptions struct {
 	RefreshToken string
 	ClientId     string
 	ClientSecret string
-	LlmPlatform  string
+	LlmProvider  string
 	LlmBaseUrl   string
 	LlmApiKey    string
 	LlmModel     string
@@ -61,9 +61,9 @@ type Blogger struct {
 	Name    string
 	BlogUrl string
 	// https://developers.google.com/blogger/docs/3.0/reference/posts/delete
-	Overwrite bool
+	Overwrite               bool
 	GenerateLlmDescriptions bool
-	knownPosts []string
+	knownPosts              []string
 }
 
 func CreateDestination(destMap map[string]interface{}) (Destination, error) {
@@ -81,12 +81,10 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 		// Optionally, enable LLM generated descriptions
-		generateLlmDescriptions, _ := destMap["generate_llm_descriptions"].(bool)
 		return &Blogger{
-			Name:                    name,
-			BlogUrl:                 blogUrl,
-			Overwrite:               overwrite,
-			GenerateLlmDescriptions: generateLlmDescriptions,
+			Name:      name,
+			BlogUrl:   blogUrl,
+			Overwrite: overwrite,
 		}, nil
 	case "markdown":
 		contentDir, ok := destMap["content_dir"].(string)
@@ -130,10 +128,11 @@ func CreateSource(sourceMap map[string]interface{}) (Source, error) {
 		if !ok || blogUrl == "" {
 			return nil, fmt.Errorf("blog_url is required for blogger")
 		}
-
+		generateLlmDescriptions, _ := sourceMap["generate_llm_descriptions"].(bool)
 		return &Blogger{
-			Name:    name,
-			BlogUrl: blogUrl,
+			Name:                    name,
+			BlogUrl:                 blogUrl,
+			GenerateLlmDescriptions: generateLlmDescriptions,
 		}, nil
 	case "markdown":
 		// If the content_dir is not set, set it to null as its not required

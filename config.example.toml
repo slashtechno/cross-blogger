@@ -5,6 +5,7 @@
 # content_dir is the directory where the markdown files are located
 # git_dir, if set, will be used to push files to a Git repository. Normally, if you're running something like Hugo, this would be the root directory of your Hugo site (the top-level directory that contains .git)
 # frontmatter_mapping is a table that can be used to customize the frontmatter (metadata). This is useful if your Hugo theme uses different frontmatter keys or if it's a frontmatter key that's not "officially" supported by Hugo and it's up to the theme to decide what key to use. I use Hugo as an example but in reality, this option could probably be used to make this compatible with any static site generator that uses frontmatter.
+# generate_llm_descriptions is used to utilize Large Language Models to generate descriptions for Blogger posts as they don't have a description field accessible via the API.
 [[destinations]]
 name = 'markdown'
 type = 'markdown'
@@ -25,6 +26,7 @@ overwrite = true
 blog_url = 'https://example.com'
 name = 'blogger'
 type = 'blogger'
+generate_llm_descriptions = true
 [[sources]]
 name = 'markdown'
 type = 'markdown'
