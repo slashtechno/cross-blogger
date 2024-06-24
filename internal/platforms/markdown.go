@@ -10,12 +10,12 @@ import (
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/charmbracelet/log"
 	"github.com/go-git/go-git/v5"
+	"github.com/goccy/go-yaml"
 	"github.com/gosimple/slug"
 	"github.com/spf13/afero"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/text"
 	goldmarkfrontmatter "go.abhg.dev/goldmark/frontmatter"
-	"gopkg.in/yaml.v2"
 )
 
 type Markdown struct {
@@ -75,6 +75,7 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 		Title: data.Title,
 		// Date:         data.Date.Format(time.RFC3339),
 		// DateUpdated:  data.DateUpdated.Format(time.RFC3339),
+		Description:  data.Description,
 		CanonicalUrl: data.CanonicalUrl,
 	}
 
@@ -183,6 +184,7 @@ func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
 		Title:        frontmatterObject.Title,
 		Html:         html,
 		Markdown:     markdown,
+		Description:  frontmatterObject.Description,
 		CanonicalUrl: frontmatterObject.CanonicalUrl,
 	}, nil
 

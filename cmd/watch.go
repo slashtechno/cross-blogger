@@ -60,10 +60,10 @@ var watchCmd = &cobra.Command{
 				ClientId:     internal.CredentialViper.GetString("google_client_id"),
 				ClientSecret: internal.CredentialViper.GetString("google_client_secret"),
 				// If enabled these details are used for generating a description via an LLM
-				LlmProvider:  internal.CredentialViper.GetString("llm_provider"),
-				LlmBaseUrl:   internal.CredentialViper.GetString("llm_base_url"),
-				LlmApiKey:    internal.CredentialViper.GetString("llm_api_key"),
-				LlmModel:     internal.CredentialViper.GetString("llm_model"),
+				LlmProvider: internal.CredentialViper.GetString("llm_provider"),
+				LlmBaseUrl:  internal.CredentialViper.GetString("llm_base_url"),
+				LlmApiKey:   internal.CredentialViper.GetString("llm_api_key"),
+				LlmModel:    internal.CredentialViper.GetString("llm_model"),
 			}
 		default:
 			log.Fatal("Source type not implemented", "source", source.GetType())

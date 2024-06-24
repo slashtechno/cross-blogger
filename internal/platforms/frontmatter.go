@@ -1,24 +1,28 @@
 package platforms
 
-import "errors"
-
+import (
+	"errors"
+	"fmt"
+)
 
 // This is more just a set of defaults compatible with Hugo's frontmatter
-var FrontMatterMappings = map[string]string{"title": "title", "date": "date", "date_updated": "lastmod", "canonical_url": "canonicalURL"}
+var FrontMatterMappings = map[string]string{"title": "title", "date": "date", "date_updated": "lastmod", "description": "description", "canonical_url": "canonicalURL"}
 
 type Frontmatter struct {
 	// TOOD: make frontmatter mappings configurable, somehow
-	Title        string `yaml:"title"`
-	Date         string `yaml:"date"`
-	DateUpdated  string `yaml:"lastmod"`
-	CanonicalUrl string `yaml:"canonicalURL"`
+	Title        string
+	Date         string
+	DateUpdated  string
+	Description  string
+	CanonicalUrl string
 }
 
 type FrontmatterMapping struct {
-	Title        string `toml:"title"`
-	Date         string `toml:"date"`
-	LastUpdated  string `toml:"lastUpdated"`
-	CanonicalURL string `toml:"canonicalURL"`
+	Title        string
+	Date         string
+	LastUpdated  string
+	Description  string
+	CanonicalURL string
 }
 
 // Take a Frontmatter struct and taking FrontmatterMapping into account, return a map ready to be marshaled into YAML
@@ -40,6 +44,9 @@ func (f *Frontmatter) ToMap(frontmatterMapping FrontmatterMapping) map[string]in
 	if f.DateUpdated != "" && frontmatterMapping.LastUpdated != "" {
 		frontmatterAsMap[frontmatterMapping.LastUpdated] = f.DateUpdated
 	}
+	if f.Description != "" && frontmatterMapping.Description != "" {
+		frontmatterAsMap[frontmatterMapping.Description] = f.Description
+	}
 	if f.CanonicalUrl != "" && frontmatterMapping.CanonicalURL != "" {
 		frontmatterAsMap[frontmatterMapping.CanonicalURL] = f.CanonicalUrl
 	}
@@ -53,17 +60,31 @@ func FrontmatterMappingFromInterface(m interface{}) (*FrontmatterMapping, error)
 		return nil, errors.New("failed to convert frontmatter mapping to map")
 	}
 	// Assert that each key is a string. If any are not, return an error
-	for k := range frontmatterMapping {
-		if _, ok := frontmatterMapping[k].(string); !ok {
-			return nil, errors.New("frontmatter mapping key is not a string")
+	for k, v := range frontmatterMapping {
+		strValue, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("frontmatter mapping key '%s' is not a string", k)
 		}
+		// Use the GetMappingOrDefault function to ensure a default value is used if necessary
+		frontmatterMapping[k] = GetMappingOrDefault(k, strValue)
 	}
+
 	return &FrontmatterMapping{
-		Title:        frontmatterMapping["title"].(string),
-		Date:         frontmatterMapping["date"].(string),
-		LastUpdated:  frontmatterMapping["date_updated"].(string),
-		CanonicalURL: frontmatterMapping["canonical_url"].(string),
+		Title:        GetMappingOrDefault("title", "defaultTitle"),
+		Date:         GetMappingOrDefault("date", "defaultDate"),
+		LastUpdated:  GetMappingOrDefault("date_updated", "defaultLastUpdated"),
+		Description:  GetMappingOrDefault("description", "defaultDescription"),
+		CanonicalURL: GetMappingOrDefault("canonical_url", "defaultCanonicalURL"),
 	}, nil
+}
+
+// GetMappingOrDefault returns the value for a given key from FrontMatterMappings.
+// If the key does not exist, it returns a default value.
+func GetMappingOrDefault(key, defaultValue string) string {
+	if value, exists := FrontMatterMappings[key]; exists {
+		return value
+	}
+	return defaultValue
 }
 
 // Take a map and return a Frontmatter struct, taking FrontmatterMapping into account
@@ -77,6 +98,9 @@ func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping Frontmatter
 	}
 	if lastUpdated, ok := m[frontmatterMapping.LastUpdated]; ok {
 		frontmatterObjet.DateUpdated = lastUpdated.(string)
+	}
+	if description, ok := m[frontmatterMapping.Description]; ok {
+		frontmatterObjet.Description = description.(string)
 	}
 	if canonicalURL, ok := m[frontmatterMapping.CanonicalURL]; ok {
 		frontmatterObjet.CanonicalUrl = canonicalURL.(string)

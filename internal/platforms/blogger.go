@@ -157,6 +157,8 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 		if err != nil {
 			return PostData{}, err
 		}
+		// TODO: It seems that sometimes, when writing to markdown, the description is written with extra whitespace
+		log.Debug("Generated description", "description", postDescription)
 	}
 
 	return PostData{
