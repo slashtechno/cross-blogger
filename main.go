@@ -39,10 +39,14 @@ func initConfig() {
 	} else {
 		// Generate a default .env file null values
 		if _, ok := err.(*fs.PathError); ok {
-			// TODO: Add LLM default values
 			log.Debug("Credential file not found, creating a new one")
 			internal.CredentialViper.SetDefault("google_client_id", "")
 			internal.CredentialViper.SetDefault("google_client_secret", "")
+			// LLM stuff
+			internal.CredentialViper.SetDefault("llm_provider", "")
+			internal.CredentialViper.SetDefault("llm_api_key", "")
+			internal.CredentialViper.SetDefault("llm_base_url", "")
+			internal.CredentialViper.SetDefault("llm_model", "")
 			if err := internal.CredentialViper.WriteConfigAs(cmd.CredentialFile); err != nil {
 				log.Fatal("Failed to write credential file:", err)
 			}
@@ -89,6 +93,7 @@ func initConfig() {
 					"name":     "someblog",
 					"type":     "blogger",
 					"blog_url": "https://example.com",
+					"generate_llm_descriptions": true,
 				},
 				{
 					"name":                "aBlogInMarkdown",

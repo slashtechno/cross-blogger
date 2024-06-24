@@ -312,12 +312,9 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 				// Add the post to the list of known posts
 				b.knownPosts = append(b.knownPosts, post["id"].(string))
 				// Add the post to the list of new posts (run Pull)
-				postData, err := b.Pull(PushPullOptions{
-					// Watch() passes a fresh access token
-					AccessToken: options.AccessToken,
-					BlogId:      options.BlogId,
-					PostUrl:     post["url"].(string),
-				})
+				optionsToPass := options
+				optionsToPass.PostUrl = post["url"].(string)
+				postData, err := b.Pull(optionsToPass)
 				if err != nil {
 					return nil, err
 				}
