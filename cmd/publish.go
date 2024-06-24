@@ -90,17 +90,19 @@ func init() {
 	publishCmd.PersistentFlags().String("google-client-id", "", "Google OAuth client ID")
 	publishCmd.PersistentFlags().String("google-client-secret", "", "Google OAuth client secret")
 	publishCmd.PersistentFlags().String("google-refresh-token", "", "Google OAuth refresh token")
-	// Keep in mind that if the refresh token is not set in the config file, the program will request one
-	// It will then write the refresh token to the config file, along with any flags or env vars that have been set.
-	// You could always go back and remove those lines and continue using environment variables or flags as it won't write to the config file as long as the refresh token is set
+	publishCmd.PersistentFlags().String("llm-platform", "", "LLM platform (\"openai\" or \"ollama\")")
+	publishCmd.PersistentFlags().String("llm-base-url", "", "Base URL")
+	publishCmd.PersistentFlags().String("llm-api-key", "", "OpenAI API key")
+	publishCmd.PersistentFlags().String("llm-model", "", "LLM model to use for OpenAI-compatible platforms")
 	// Allow the OAuth stuff to be set via viper
-	internal.CredentialViper.BindPFlag("google_client_id", publishCmd.Flags().Lookup("google-client-id"))
+	internal.CredentialViper.BindPFlag("google_client_id", publishCmd.Flags().Lookup("gcooogle-client-id"))
 	internal.CredentialViper.BindPFlag("google_client_secret", publishCmd.Flags().Lookup("google-client-secret"))
 	internal.CredentialViper.BindPFlag("google_refresh_token", publishCmd.Flags().Lookup("google-refresh-token"))
-	// Keep in mind that these should be prefixed with CROSS_BLOGGER
-	internal.CredentialViper.BindEnv("google-client-id", "CROSS_BLOGGER_GOOGLE_CLIENT_ID")
-	internal.CredentialViper.BindEnv("google-client-secret", "CROSS_BLOGGER_GOOGLE_CLIENT_SECRET")
-	internal.CredentialViper.BindEnv("google-refresh-token", "GOOGLE_REFRESH_TOKEN")
+	// Bind Viper to LLM flags
+	internal.ConfigViper.BindPFlag("llm-platform", publishCmd.Flags().Lookup("llm-platform"))
+	internal.ConfigViper.BindPFlag("llm-base-url", publishCmd.Flags().Lookup("llm-base-url"))
+	internal.ConfigViper.BindPFlag("llm-api-key", publishCmd.Flags().Lookup("llm-api-key"))
+	internal.ConfigViper.BindPFlag("llm-model", publishCmd.Flags().Lookup("llm-model"))
 }
 
 // Return the Blogger object and a string with the access token, the blog ID, a refresh token, and an error if one occurred
@@ -177,6 +179,10 @@ func pushToDestinations(postData platforms.PostData, destinationSlice []platform
 			options = platforms.PushPullOptions{
 				AccessToken: accessToken,
 				BlogId:      blogId,
+				LlmPlatform: internal.ConfigViper.GetString("llm-platform"),
+				LlmBaseUrl:  internal.ConfigViper.GetString("llm-base-url"),
+				LlmApiKey:   internal.ConfigViper.GetString("llm-api-key"),
+				LlmModel:    internal.ConfigViper.GetString("llm-model"),
 			}
 		default:
 			found = false

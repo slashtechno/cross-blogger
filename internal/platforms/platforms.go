@@ -31,6 +31,10 @@ type PushPullOptions struct {
 	RefreshToken string
 	ClientId     string
 	ClientSecret string
+	LlmPlatform  string
+	LlmBaseUrl   string
+	LlmApiKey    string
+	LlmModel     string
 }
 
 type PostData struct {
@@ -39,6 +43,8 @@ type PostData struct {
 	Markdown    string
 	Date        time.Time
 	DateUpdated time.Time
+	// TODO: Add frontmatter descriptions
+	Description string
 	// Other fields that are probably needed are canonical URL, publish date, and description
 	CanonicalUrl string
 }
@@ -55,10 +61,10 @@ type Blogger struct {
 	Name    string
 	BlogUrl string
 	// https://developers.google.com/blogger/docs/3.0/reference/posts/delete
-	Overwrite  bool
+	Overwrite bool
+	GenerateLlmDescriptions bool
 	knownPosts []string
 }
-
 
 func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 	name, ok := destMap["name"].(string)
@@ -74,11 +80,13 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 		}
 
 		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
-
+		// Optionally, enable LLM generated descriptions
+		generateLlmDescriptions, _ := destMap["generate_llm_descriptions"].(bool)
 		return &Blogger{
-			Name:      name,
-			BlogUrl:   blogUrl,
-			Overwrite: overwrite,
+			Name:                    name,
+			BlogUrl:                 blogUrl,
+			Overwrite:               overwrite,
+			GenerateLlmDescriptions: generateLlmDescriptions,
 		}, nil
 	case "markdown":
 		contentDir, ok := destMap["content_dir"].(string)

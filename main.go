@@ -22,6 +22,9 @@ func initConfig() {
 	// Tell Viper to use the prefix "CROSS_BLOGGER" for environment variables
 	internal.ConfigViper.SetEnvPrefix("CROSS_BLOGGER")
 	internal.CredentialViper.SetEnvPrefix("CROSS_BLOGGER")
+	// Set automatic env to true
+	internal.ConfigViper.AutomaticEnv()
+	internal.CredentialViper.AutomaticEnv()
 
 	// log.Debug(cfgFile)
 	if cmd.CredentialFile != "" {
