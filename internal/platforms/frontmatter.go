@@ -61,30 +61,25 @@ func FrontmatterMappingFromInterface(m interface{}) (*FrontmatterMapping, error)
 	}
 	// Assert that each key is a string. If any are not, return an error
 	for k, v := range frontmatterMapping {
-		strValue, ok := v.(string)
+		_, ok := v.(string)
 		if !ok {
 			return nil, fmt.Errorf("frontmatter mapping key '%s' is not a string", k)
 		}
-		// Use the GetMappingOrDefault function to ensure a default value is used if necessary
-		frontmatterMapping[k] = GetMappingOrDefault(k, strValue)
+	}
+	// Add any missing keys from the default FrontMatterMappings
+	for k, v := range FrontMatterMappings {
+		if _, ok := frontmatterMapping[k]; !ok {
+			frontmatterMapping[k] = v
+		}
 	}
 
 	return &FrontmatterMapping{
-		Title:        GetMappingOrDefault("title", "defaultTitle"),
-		Date:         GetMappingOrDefault("date", "defaultDate"),
-		LastUpdated:  GetMappingOrDefault("date_updated", "defaultLastUpdated"),
-		Description:  GetMappingOrDefault("description", "defaultDescription"),
-		CanonicalURL: GetMappingOrDefault("canonical_url", "defaultCanonicalURL"),
+		Title:        frontmatterMapping["title"].(string),
+		Date:         frontmatterMapping["date"].(string),
+		LastUpdated:  frontmatterMapping["date_updated"].(string),
+		CanonicalURL: frontmatterMapping["canonical_url"].(string),
+		Description:  frontmatterMapping["description"].(string),
 	}, nil
-}
-
-// GetMappingOrDefault returns the value for a given key from FrontMatterMappings.
-// If the key does not exist, it returns a default value.
-func GetMappingOrDefault(key, defaultValue string) string {
-	if value, exists := FrontMatterMappings[key]; exists {
-		return value
-	}
-	return defaultValue
 }
 
 // Take a map and return a Frontmatter struct, taking FrontmatterMapping into account
