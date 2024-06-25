@@ -116,8 +116,15 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 		if err != nil {
 			return err
 		}
+		// Get the relative path of filePath to dirPath
+		relativePath, err := filepath.Rel(dirPath, filePath)
+		if err != nil {
+			// Handle error, for example, return it
+			return err
+		}
+
 		// Add the file
-		_, err = repoWorktree.Add(filepath.Base(filePath))
+		_, err = repoWorktree.Add(relativePath)
 		if err != nil {
 			return err
 		}
