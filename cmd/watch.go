@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"sync"
+
 	"github.com/charmbracelet/log"
 	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // watchCmd represents the watch command
@@ -68,35 +71,59 @@ var watchCmd = &cobra.Command{
 		default:
 			log.Fatal("Source type not implemented", "source", source.GetType())
 		}
-		// Waitgroups are used to ensure that the program doesn't exit before the goroutines finish
 		// Channels are used to pass data between the goroutines
 		postChan := make(chan platforms.PostData)
 		errChan := make(chan error)
+		var wg sync.WaitGroup
 
 		// Start watching the source in a separate goroutine
 		// This will send new posts to postChan and errors to errChan
-		go watcher.Watch(internal.ConfigViper.GetDuration("interval"), options, postChan, errChan)
-
-		// Start an infinite loop
-		for {
-			// Wait for something to happen
-			select {
-			// If a new post arrives
-			case post := <-postChan:
-				// Log the new post
-				log.Info("New post", "post", post)
-				err := pushToDestinations(post, destinationSlice, false)
-
-				if err != nil {
-					log.Error("Error", "error", err)
+		wg.Add(1)
+		go watcher.Watch(&wg, internal.ConfigViper.GetDuration("interval"), options, postChan, errChan)
+		// Assert that the source is Blogger
+		blogger, ok := source.(*platforms.Blogger)
+		if ok {
+			// Check if Charm is enabled
+			if viper.GetBool("charm.enable") {
+				// For every destinationn, assert that it is Markdown
+				// If it is, pass it to Blogger.CleanMarkdownPosts
+				for _, dest := range destinationSlice {
+					if markdownDest, ok := dest.(*platforms.Markdown); ok {
+						// Check if overwriting is enabled
+						if markdownDest.Overwrite {
+							go blogger.CleanMarkdownPosts(internal.ConfigViper.GetDuration("interval"), internal.Kv, markdownDest, options, errChan)
+						} else {
+							log.Debug("Overwriting is disabled; not cleaning up posts", "destination", dest.GetName())
+						}
+					} else {
+						log.Debug("Destination is not Markdown; not cleaning up posts", "destination", dest.GetName())
+					}
 				}
-			// If an error occurs
-			case err := <-errChan:
-				// Log the error
-				log.Error("Error", "error", err)
 			}
 		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				// Wait for something to happen
+				select {
+				// If a new post arrives
+				case post := <-postChan:
+					// Log the new post
+					log.Info("New post", "post", post)
+					err := pushToDestinations(post, destinationSlice, false)
 
+					if err != nil {
+						log.Error("Error", "error", err)
+					}
+				// If an error occurs
+				case err := <-errChan:
+					// Log the error
+					log.Error("Error", "error", err)
+				}
+			}
+		}()
+		wg.Wait()
 	},
 }
 

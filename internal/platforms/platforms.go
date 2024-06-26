@@ -2,6 +2,7 @@ package platforms
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -20,7 +21,8 @@ type Source interface {
 }
 type WatchableSource interface {
 	Source
-	Watch(time.Duration, PushPullOptions, chan<- PostData, chan<- error)
+	// Watch(time.Duration, PushPullOptions, chan<- PostData, chan<- error)
+	Watch(*sync.WaitGroup, time.Duration, PushPullOptions, chan<- PostData, chan<- error)
 }
 
 type PushPullOptions struct {

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/charmbracelet/charm/kv"
 	"github.com/charmbracelet/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/slashtechno/cross-blogger/pkg/oauth"
@@ -228,10 +230,10 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 }
 
 // Every interval, check for new posts (posts that haven't been seen before) and send them to the postChan channel.
-func (b *Blogger) Watch(interval time.Duration, options PushPullOptions, postChan chan<- PostData, errChan chan<- error) {
+func (b *Blogger) Watch(wg *sync.WaitGroup, interval time.Duration, options PushPullOptions, postChan chan<- PostData, errChan chan<- error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-
+	defer wg.Done()
 	for range ticker.C {
 		// Fetch new posts from Blogger
 		// Refresh the access token
@@ -327,6 +329,10 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	}
 	// It is not possible to reach this point because the function will return before this point
 	// return nil, errors.New("unreachable")
+}
+
+// CleanMarkdownPosts takes a Markdown destination and using a Charm KV store, remove any posts that are deleted from contentDir
+func (b Blogger) CleanMarkdownPosts(interval time.Duration, kvClient *kv.KV, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
 }
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
