@@ -1,5 +1,10 @@
 package utils
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 // Check if a slice contains a string
 func ContainsString(slice []string, item string) bool {
 	for _, a := range slice {
@@ -33,4 +38,23 @@ func DefaultInt(i, defaultValue int) int {
 		return defaultValue
 	}
 	return i
+}
+
+// Function to check if one path is a subdirectory of another
+func IsSubdirectory(parent, child string) (bool, error) {
+    // Clean and convert the parent path to an absolute path
+    parentPath, err := filepath.Abs(filepath.Clean(parent))
+    if err != nil {
+        return false, err
+    }
+    childPath, err := filepath.Abs(child)
+    if err != nil {
+        return false, err
+    }
+    // Ensure proper boundary matching by adding a trailing separator to the parent path
+    parentPathWithSep := parentPath + string(filepath.Separator)
+
+    // Use strings.HasPrefix to check if the child path is a subdirectory of the parent path
+    isSubdir := strings.HasPrefix(childPath, parentPathWithSep)
+    return isSubdir, nil
 }

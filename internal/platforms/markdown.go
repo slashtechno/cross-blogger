@@ -12,6 +12,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/goccy/go-yaml"
 	"github.com/gosimple/slug"
+	"github.com/slashtechno/cross-blogger/pkg/utils"
 	"github.com/spf13/afero"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/text"
@@ -102,48 +103,86 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 
 	// If the Git directory is set, commit + push the changes
 	if m.GitDir != "" {
+		commitHash, err := m.Commit(slug, true)
+		if err != nil {
+			return err
+		}
+		log.Info("Committed and pushed changes", "hash", commitHash)
 
-		// Open the git repository
-		// Clean up the Git directory path
-		dirPath = filepath.Clean(m.GitDir)
-		// No need to check if the directory exits since PlainOpen will return an error if a repos
-		// Open the repository
-		repo, err := git.PlainOpen(dirPath)
-		if err != nil {
-			return err
-		}
-		repoWorktree, err := repo.Worktree()
-		if err != nil {
-			return err
-		}
-		// Get the relative path of filePath to dirPath
-		relativePath, err := filepath.Rel(dirPath, filePath)
-		if err != nil {
-			// Handle error, for example, return it
-			return err
-		}
-
-		// Add the file
-		_, err = repoWorktree.Add(relativePath)
-		if err != nil {
-			return err
-		}
-		// Commit the changes
-		commitHash, err := repoWorktree.Commit("(Re-)publish "+slug+".md", &git.CommitOptions{})
-		if err != nil {
-			return err
-		}
-		log.Info("Committed changes", "hash", commitHash.String())
-		// Push the changes
-		err = repo.Push(&git.PushOptions{})
-		if err != nil {
-			return err
-		}
 	}
-
 	return nil
 
 }
+
+// Commit and optionally push the changes to the Git repository.
+// If contentDir is not a subdirectory of the gitDir, error.
+func (m Markdown) Commit(slug string, push bool) (hash string, err error) {
+	contentDir := m.ContentDir
+	gitDir := m.GitDir
+	filePath := filepath.Join(m.ContentDir, slug+".md")
+
+	// Clean the Git directory path
+	dirPath := filepath.Clean(gitDir)
+	// Clean the content directory path
+	contentDir = filepath.Clean(contentDir)
+	// Clean the file path
+	filePath = filepath.Clean(filePath)
+	// Make sure contentDir and gitDir are absolute paths
+	contentDir, err = filepath.Abs(contentDir)
+	if err != nil {
+		return "", err
+	}
+	gitDir, err = filepath.Abs(gitDir)
+	if err != nil {
+		return "", err
+	}
+	// Check if the contentDir is a subdirectory of the gitDir
+	// if !filepath.HasPrefix(contentDir, gitDir) {
+	// 	return "", fmt.Errorf("contentDir is not a subdirectory of gitDir")
+	// }
+	isSubdir, err := utils.IsSubdirectory(gitDir, contentDir)
+	if err != nil {
+		return "", err
+	}
+	if !isSubdir {
+		return "", fmt.Errorf("contentDir is not a subdirectory of gitDir")
+	}
+	// Open the repository
+	repo, err := git.PlainOpen(dirPath)
+	if err != nil {
+		return "", err
+	}
+	repoWorktree, err := repo.Worktree()
+	if err != nil {
+		return "", err
+	}
+	// Get the relative path of filePath to dirPath
+	relativePath, err := filepath.Rel(dirPath, filePath)
+	if err != nil {
+		// Handle error, for example, return it
+		return "", err
+	}
+
+	// Add the file
+	_, err = repoWorktree.Add(relativePath)
+	if err != nil {
+		return "", err
+	}
+	// Commit the changes
+	commitHash, err := repoWorktree.Commit("Update "+slug+".md", &git.CommitOptions{})
+	if err != nil {
+		return "", err
+	}
+	if push {
+		// Push the changes
+		err = repo.Push(&git.PushOptions{})
+		if err != nil {
+			return "", err
+		}
+	}
+	return commitHash.String(), nil
+}
+
 func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
 	// Get the file path
 	fs := afero.NewOsFs()

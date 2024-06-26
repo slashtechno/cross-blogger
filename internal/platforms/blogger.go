@@ -345,7 +345,6 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 
 // CleanMarkdownPosts takes a Markdown destination and using a Charm KV store, remove any posts that are deleted from contentDir
 func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, kvClient *kv.KV, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
-
 }
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
