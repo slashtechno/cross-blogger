@@ -287,24 +287,13 @@ func (b *Blogger) fetchPosts(blogId, accessToken string) ([]map[string]interface
 // Get posts that haven't been seen before and return them
 func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	// Get the list of posts
-	client := resty.New()
-	resp, err := client.R().
-		SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).
-		SetResult(&map[string]interface{}{}).
-		SetQueryParam("fetchBodies", "true").
-		SetQueryParam("status", "LIVE").
-		Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts")
+	posts, err := b.fetchPosts(options.BlogId, options.AccessToken)
 	if err != nil {
 		return nil, err
 	}
-	// Assert that posts is a pointer to a map. However, dereference it to get the map
-	posts := (*resp.Result().(*map[string]interface{}))["items"].([]interface{})
-	// log.Debug("", "posts", posts)
-	// Check if the list of known posts is empty
 	if len(b.knownPosts) == 0 {
 		// Add all the posts to the list of known posts
-		for _, p := range posts {
-			post := p.(map[string]interface{})
+		for _, post := range posts {
 			b.knownPosts = append(b.knownPosts, post["id"].(string))
 		}
 		// Return an empty slice because there are no new posts
@@ -319,8 +308,7 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 		// If a post is no longer live, remove it from the list of known posts
 		for _, knownPost := range b.knownPosts {
 			found := false
-			for _, p := range posts {
-				post := p.(map[string]interface{})
+			for _, post := range posts {
 				if post["id"].(string) == knownPost {
 					found = true
 					break
@@ -334,8 +322,7 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 		}
 
 		// Get the postData for new posts
-		for _, p := range posts {
-			post := p.(map[string]interface{})
+		for _, post := range posts {
 			// Check if the post is new
 			if !utils.ContainsString(b.knownPosts, post["id"].(string)) {
 				// Add the post to the list of known posts
