@@ -1,3 +1,4 @@
+// TODO: When Charm is enabled, call a method of Blogger in watch.go via a ticker that checks if any posts previously known to the program have been deleted. If they have, delete contentDir/<slug>.md, commit, and push. The method should take a pointer to a Markdown object
 package internal
 
 import (
@@ -7,30 +8,25 @@ import (
 	charmclient "github.com/charmbracelet/charm/client"
 	"github.com/charmbracelet/charm/kv"
 	"github.com/dgraph-io/badger/v3"
+	"github.com/slashtechno/cross-blogger/pkg/utils"
 )
 
 var Kv *kv.KV
 
 // Attempt to do kv.OpenWithDefaults but in a much more complex manner for the sole reason of being able to set a custom server
-func InitializeKv(name, host string, sshPort, httpPort int, debug bool, logfile, keyType, dataDir, identityKey string) error {
+func InitializeKv(name string, charmClientConfig charmclient.Config) error {
 	if name == "" {
 		name = "cross-blogger"
 	}
 
-	// TODO: Use defaults (https://github.com/charmbracelet/charm/blob/f0b0b9512820de64996aecc019933431584cc92d/client/client.go#L29-L36)
-
-	cc, err := charmclient.NewClient(
-		&charmclient.Config{
-			Host:        host,
-			SSHPort:     sshPort,
-			HTTPPort:    httpPort,
-			Debug:       debug,
-			Logfile:     logfile,
-			KeyType:     keyType,
-			DataDir:     dataDir,
-			IdentityKey: identityKey,
-		},
-	)
+	// Defaults: https://github.com/charmbracelet/charm/blob/f0b0b9512820de64996aecc019933431584cc92d/client/client.go#L29-L36
+	charmClientConfig.Host = utils.DefaultString(charmClientConfig.Host, "cloud.charm.sh")
+	charmClientConfig.SSHPort = utils.DefaultInt(charmClientConfig.SSHPort, 35353)
+	charmClientConfig.HTTPPort = utils.DefaultInt(charmClientConfig.HTTPPort, 35354)
+	// Debug default is already false, no need to set
+	charmClientConfig.KeyType = utils.DefaultString(charmClientConfig.KeyType, "ed25519")
+	// Logfile, DataDir, and IdentityKey defaults are effectively no-operations (no-ops) because they have empty defaults
+	cc, err := charmclient.NewClient(&charmClientConfig)
 	if err != nil {
 		return err
 	}
@@ -70,6 +66,10 @@ func SetList(key string, value []string) error {
 
 // Get an array from the KV store and unmarshal it from JSON.
 func GetList(key string) ([]string, error) {
+	// Sync
+	if err := Kv.Sync(); err != nil {
+		return nil, err
+	}
 	// Get the value from the KV store
 	if value, err := Kv.Get([]byte(key)); err != nil {
 		return nil, err
@@ -81,4 +81,75 @@ func GetList(key string) ([]string, error) {
 		}
 		return list, nil
 	}
+}
+
+// ViperMapToConfig converts a map[string]interface{} to a charmclient.Config object.
+func ViperMapToConfig(viperMap map[string]interface{}) (charmclient.Config, error) {
+	// Default configuration
+	clientConfig := charmclient.Config{
+		Host:        "cloud.charm.sh",
+		SSHPort:     35353,
+		HTTPPort:    35354,
+		Debug:       false,
+		Logfile:     "",
+		KeyType:     "ed25519",
+		DataDir:     "",
+		IdentityKey: "",
+	}
+
+	// Check if enabled, return early if not
+	if enabled, ok := viperMap["enabled"].(bool); !ok || !enabled {
+		return charmclient.Config{}, nil
+	}
+
+	// Helper function to update config fields if they exist in viperMap
+	updateConfig := func(key string, updateFunc func(val interface{})) {
+		if val, exists := viperMap[key]; exists {
+			updateFunc(val)
+		}
+	}
+
+	// Update fields from viperMap
+	updateConfig("host", func(val interface{}) {
+		if v, ok := val.(string); ok {
+			clientConfig.Host = v
+		}
+	})
+	updateConfig("ssh_port", func(val interface{}) {
+		if v, ok := val.(int); ok {
+			clientConfig.SSHPort = v
+		}
+	})
+	updateConfig("http_port", func(val interface{}) {
+		if v, ok := val.(int); ok {
+			clientConfig.HTTPPort = v
+		}
+	})
+	updateConfig("debug", func(val interface{}) {
+		if v, ok := val.(bool); ok {
+			clientConfig.Debug = v
+		}
+	})
+	updateConfig("logfile", func(val interface{}) {
+		if v, ok := val.(string); ok {
+			clientConfig.Logfile = v
+		}
+	})
+	updateConfig("key_type", func(val interface{}) {
+		if v, ok := val.(string); ok {
+			clientConfig.KeyType = v
+		}
+	})
+	updateConfig("data_dir", func(val interface{}) {
+		if v, ok := val.(string); ok {
+			clientConfig.DataDir = v
+		}
+	})
+	updateConfig("identity_key", func(val interface{}) {
+		if v, ok := val.(string); ok {
+			clientConfig.IdentityKey = v
+		}
+	})
+
+	return clientConfig, nil
 }

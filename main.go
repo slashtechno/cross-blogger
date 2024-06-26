@@ -47,6 +47,20 @@ func initConfig() {
 			internal.CredentialViper.SetDefault("llm_api_key", "")
 			internal.CredentialViper.SetDefault("llm_base_url", "")
 			internal.CredentialViper.SetDefault("llm_model", "")
+			// Charm stuff
+			internal.CredentialViper.SetDefault("charm", map[string]interface{}{
+				"enable":       false,
+				"db_name":      "cross-blogger",
+				"host":         "cloud.charm.sh",
+				"ssh_port":     35353,
+				"http_port":    35354,
+				"debug":        false,
+				"logfile":      "",
+				"key_type":     "ed25519",
+				"data_dir":     "",
+				"identity_key": "",
+			})
+
 			if err := internal.CredentialViper.WriteConfigAs(cmd.CredentialFile); err != nil {
 				log.Fatal("Failed to write credential file:", err)
 			}
@@ -90,9 +104,9 @@ func initConfig() {
 			// Sources
 			internal.ConfigViper.SetDefault("sources", []map[string]interface{}{
 				{
-					"name":     "someblog",
-					"type":     "blogger",
-					"blog_url": "https://example.com",
+					"name":                      "someblog",
+					"type":                      "blogger",
+					"blog_url":                  "https://example.com",
 					"generate_llm_descriptions": true,
 				},
 				{

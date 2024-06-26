@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	charmclient "github.com/charmbracelet/charm/client"
 	"github.com/charmbracelet/log"
 	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
@@ -21,6 +22,23 @@ var publishCmd = &cobra.Command{
 	// Arg 2: Specifier
 	// Arg 3+: Destinations
 	Args: cobra.MinimumNArgs(3),
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		var clientConfig charmclient.Config
+		var err error
+		if clientConfig, err = internal.ViperMapToConfig(internal.CredentialViper.GetStringMap("charm")); err != nil {
+			return err
+		}
+		// https://github.com/spf13/viper?tab=readme-ov-file#accessing-nested-keys
+		if !internal.CredentialViper.GetBool("charm.enable") {
+			log.Debug("Charm is disabled")
+			return nil
+		}
+		internal.InitializeKv(
+			internal.CredentialViper.GetString("charm.db_name"),
+			clientConfig,
+		)
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		destinations := internal.ConfigViper.Get("destinations")
 		sources := internal.ConfigViper.Get("sources")

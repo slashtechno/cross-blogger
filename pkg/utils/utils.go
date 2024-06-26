@@ -12,11 +12,25 @@ func ContainsString(slice []string, item string) bool {
 
 // RemoveString removes all occurrences of a string from a slice and returns the new slice.
 func RemoveString(slice []string, s string) []string {
-    var result []string
-    for _, item := range slice {
-        if item != s {
-            result = append(result, item)
-        }
-    }
-    return result
+	var result []string
+	for _, item := range slice {
+		if item != s {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func DefaultString(s, defaultValue string) string {
+	if s == "" {
+		return defaultValue
+	}
+	return s
+}
+
+func DefaultInt(i, defaultValue int) int {
+	if i == 0 {
+		return defaultValue
+	}
+	return i
 }
