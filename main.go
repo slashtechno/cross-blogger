@@ -47,12 +47,12 @@ func initConfig() {
 			internal.CredentialViper.SetDefault("llm_api_key", "")
 			internal.CredentialViper.SetDefault("llm_base_url", "")
 			internal.CredentialViper.SetDefault("llm_model", "")
-			// Charm stuff
-			internal.CredentialViper.SetDefault("db", map[string]interface{}{
-				"enable": false,
-				"url":    "redis://<user>:<pass>@localhost:6379/0",
-				"db":     0,
-			})
+			// db stuff
+			// internal.CredentialViper.SetDefault("db", map[string]interface{}{
+			// 	"enable": false,
+			// 	"url":    "redis://<user>:<pass>@localhost:6379/0",
+			// 	"db":     0,
+			// })
 
 			if err := internal.CredentialViper.WriteConfigAs(cmd.CredentialFile); err != nil {
 				log.Fatal("Failed to write credential file:", err)

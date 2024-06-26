@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/log"
-	"github.com/redis/go-redis/v9"
 	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
@@ -22,23 +21,23 @@ var publishCmd = &cobra.Command{
 	// Arg 2: Specifier
 	// Arg 3+: Destinations
 	Args: cobra.MinimumNArgs(3),
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-		var redisOptions *redis.Options
-		if redisOptions, err = internal.InitializeRedisOptions(internal.CredentialViper.GetStringMap("db")); err != nil {
-			return err
-		}
-		// https://github.com/spf13/viper?tab=readme-ov-file#accessing-nested-keys
-		if !internal.CredentialViper.GetBool("db.enable") {
-			log.Debug("DB is disabled")
-			return nil
-		}
-		if err := internal.InitializeDb("redis", redisOptions); err != nil {
-			return err
-		}
+	// PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	// 	var err error
+	// 	var redisOptions *redis.Options
+	// 	if redisOptions, err = internal.InitializeRedisOptions(internal.CredentialViper.GetStringMap("db")); err != nil {
+	// 		return err
+	// 	}
+	// 	// https://github.com/spf13/viper?tab=readme-ov-file#accessing-nested-keys
+	// 	if !internal.CredentialViper.GetBool("db.enable") {
+	// 		log.Debug("DB is disabled")
+	// 		return nil
+	// 	}
+	// 	if err := internal.InitializeDb("redis", redisOptions); err != nil {
+	// 		return err
+	// 	}
 
-		return nil
-	},
+	// 	return nil
+	// },
 	Run: func(cmd *cobra.Command, args []string) {
 		destinations := internal.ConfigViper.Get("destinations")
 		sources := internal.ConfigViper.Get("sources")

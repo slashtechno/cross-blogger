@@ -92,7 +92,7 @@ var watchCmd = &cobra.Command{
 						// Check if overwriting is enabled
 						if markdownDest.Overwrite {
 							wg.Add(1)
-							go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), internal.RedisClient, markdownDest, options, errChan)
+							go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), markdownDest, options, errChan)
 						} else {
 							log.Debug("Overwriting is disabled; not cleaning up posts", "destination", dest.GetName())
 						}

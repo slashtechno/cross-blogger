@@ -6,7 +6,7 @@ import (
 )
 
 // This is more just a set of defaults compatible with Hugo's frontmatter
-var FrontMatterMappings = map[string]string{"title": "title", "date": "date", "date_updated": "lastmod", "description": "description", "canonical_url": "canonicalURL"}
+var FrontMatterMappings = map[string]string{"title": "title", "date": "date", "date_updated": "lastmod", "description": "description", "canonical_url": "canonicalURL", "managed": "managedByCrossBlogger"}
 
 type Frontmatter struct {
 	// TOOD: make frontmatter mappings configurable, somehow
@@ -15,6 +15,7 @@ type Frontmatter struct {
 	DateUpdated  string
 	Description  string
 	CanonicalUrl string
+	Managed      bool
 }
 
 type FrontmatterMapping struct {
@@ -23,6 +24,7 @@ type FrontmatterMapping struct {
 	LastUpdated  string
 	Description  string
 	CanonicalURL string
+	Managed      string
 }
 
 // Take a Frontmatter struct and taking FrontmatterMapping into account, return a map ready to be marshaled into YAML
@@ -49,6 +51,9 @@ func (f *Frontmatter) ToMap(frontmatterMapping FrontmatterMapping) map[string]in
 	}
 	if f.CanonicalUrl != "" && frontmatterMapping.CanonicalURL != "" {
 		frontmatterAsMap[frontmatterMapping.CanonicalURL] = f.CanonicalUrl
+	}
+	if frontmatterMapping.Managed != "" {
+		frontmatterAsMap[frontmatterMapping.Managed] = f.Managed
 	}
 	return frontmatterAsMap
 }
@@ -79,26 +84,30 @@ func FrontmatterMappingFromInterface(m interface{}) (*FrontmatterMapping, error)
 		LastUpdated:  frontmatterMapping["date_updated"].(string),
 		CanonicalURL: frontmatterMapping["canonical_url"].(string),
 		Description:  frontmatterMapping["description"].(string),
+		Managed:      frontmatterMapping["managed"].(string),
 	}, nil
 }
 
 // Take a map and return a Frontmatter struct, taking FrontmatterMapping into account
 func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping FrontmatterMapping) *Frontmatter {
-	frontmatterObjet := &Frontmatter{}
+	frontmatterObject := &Frontmatter{}
 	if title, ok := m[frontmatterMapping.Title]; ok {
-		frontmatterObjet.Title = title.(string)
+		frontmatterObject.Title = title.(string)
 	}
 	if date, ok := m[frontmatterMapping.Date]; ok {
-		frontmatterObjet.Date = date.(string)
+		frontmatterObject.Date = date.(string)
 	}
 	if lastUpdated, ok := m[frontmatterMapping.LastUpdated]; ok {
-		frontmatterObjet.DateUpdated = lastUpdated.(string)
+		frontmatterObject.DateUpdated = lastUpdated.(string)
 	}
 	if description, ok := m[frontmatterMapping.Description]; ok {
-		frontmatterObjet.Description = description.(string)
+		frontmatterObject.Description = description.(string)
 	}
 	if canonicalURL, ok := m[frontmatterMapping.CanonicalURL]; ok {
-		frontmatterObjet.CanonicalUrl = canonicalURL.(string)
+		frontmatterObject.CanonicalUrl = canonicalURL.(string)
 	}
-	return frontmatterObjet
+	if managed, ok := m[frontmatterMapping.Managed]; ok {
+		frontmatterObject.Managed = managed.(bool)
+	}
+	return frontmatterObject
 }

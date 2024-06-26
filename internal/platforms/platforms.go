@@ -10,6 +10,7 @@ import (
 
 type Destination interface {
 	Push(PostData, PushPullOptions) error
+	// Push(*redis.Client, PostData, PushPullOptions) error
 	GetName() string
 	GetType() string
 }

@@ -78,6 +78,7 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 		// DateUpdated:  data.DateUpdated.Format(time.RFC3339),
 		Description:  data.Description,
 		CanonicalUrl: data.CanonicalUrl,
+		Managed:      true,
 	}
 
 	// Only add Date if it's not the zero value
@@ -183,6 +184,38 @@ func (m Markdown) Commit(slug string, push bool) (hash string, err error) {
 	return commitHash.String(), nil
 }
 
+func (m Markdown) ParseMarkdown(markdown string) (markdownWithoutFrontmatter string, html string, postFrontmatter *Frontmatter, err error) {
+	// Convert the markdown to HTML with Goldmark
+	// Use the Frontmatter extension to get the frontmatter
+	mdParser := goldmark.New(goldmark.WithExtensions(&goldmarkfrontmatter.Extender{
+		Mode: goldmarkfrontmatter.SetMetadata,
+	}))
+	var buf bytes.Buffer
+	parsedDoc := mdParser.Parser().Parse(text.NewReader([]byte(markdown)))
+	err = mdParser.Renderer().Render(&buf, []byte(markdown), parsedDoc)
+	if err != nil {
+		return "", "", nil, err
+	}
+	// Get the frontmatter
+	frontmatterObject := FrontmatterFromMap(parsedDoc.OwnerDocument().Meta(), m.FrontmatterMapping)
+	// Check if title and canonical URL are set
+	if frontmatterObject.Title == "" {
+		return "", "", nil, err
+	}
+	if frontmatterObject.CanonicalUrl == "" {
+		log.Warn("canonical_url is not set in frontmatter")
+	}
+	// Convert the HTML to Markdown
+	html = buf.String()
+	// The frontmatter is stripped before converting to HTML
+	// Just convert the HTML to Markdown so the Markdown doesn't have the frontmatter (otherwise it would be duplicated)
+	markdownWithoutFrontmatter, err = md.NewConverter("", true, nil).ConvertString(html)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return
+}
+
 func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
 	// Get the file path
 	fs := afero.NewOsFs()
@@ -198,38 +231,15 @@ func (m Markdown) Pull(options PushPullOptions) (PostData, error) {
 		return PostData{}, err
 	}
 	markdown := string(data)
-	// Convert the markdown to HTML with Goldmark
-	// Use the Frontmatter extension to get the frontmatter
-	mdParser := goldmark.New(goldmark.WithExtensions(&goldmarkfrontmatter.Extender{
-		Mode: goldmarkfrontmatter.SetMetadata,
-	}))
-	var buf bytes.Buffer
-	parsedDoc := mdParser.Parser().Parse(text.NewReader([]byte(markdown)))
-	err = mdParser.Renderer().Render(&buf, data, parsedDoc)
-	if err != nil {
-		return PostData{}, err
-	}
-	// Get the frontmatter
-	frontmatterObject := FrontmatterFromMap(parsedDoc.OwnerDocument().Meta(), m.FrontmatterMapping)
-	// Check if title and canonical URL are set
-	if frontmatterObject.Title == "" {
-		return PostData{}, fmt.Errorf("title is required in frontmatter")
-	}
-	if frontmatterObject.CanonicalUrl == "" {
-		log.Warn("canonical_url is not set in frontmatter")
-	}
-	// Convert the HTML to Markdown
-	html := buf.String()
-	// The frontmatter is stripped before converting to HTML
-	// Just convert the HTML to Markdown so the Markdown doesn't have the frontmatter (otherwise it would be duplicated)
-	markdown, err = md.NewConverter("", true, nil).ConvertString(html)
+	// Parse the markdown
+	markdownWithoutFrontmatter, html, frontmatterObject, err := m.ParseMarkdown(markdown)
 	if err != nil {
 		return PostData{}, err
 	}
 	return PostData{
 		Title:        frontmatterObject.Title,
 		Html:         html,
-		Markdown:     markdown,
+		Markdown:     markdownWithoutFrontmatter,
 		Description:  frontmatterObject.Description,
 		CanonicalUrl: frontmatterObject.CanonicalUrl,
 	}, nil

@@ -3,6 +3,7 @@ package platforms
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -11,9 +12,10 @@ import (
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/charmbracelet/log"
 	"github.com/go-resty/resty/v2"
-	"github.com/redis/go-redis/v9"
+	"github.com/gosimple/slug"
 	"github.com/slashtechno/cross-blogger/pkg/oauth"
 	"github.com/slashtechno/cross-blogger/pkg/utils"
+	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 	"github.com/tmc/langchaingo/llms/openai"
@@ -124,7 +126,7 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	}
 	// If GenerateLlmDescriptions is true, generate descriptions for the post
 	var postDescription string
-	var llmImplementation llms.LLM
+	var llmImplementation llms.Model
 	prompt := fmt.Sprintf("The following is a blog post titled \"%s\" with the content:\n\n%s\n\nThe description of the post is:", title, markdown)
 	if b.GenerateLlmDescriptions {
 		switch strings.ToLower(options.LlmProvider) {
@@ -343,12 +345,85 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	// return nil, errors.New("unreachable")
 }
 
-// CleanMarkdownPosts takes a Markdown destination and using a redis, remove any posts that are deleted from contentDir
-func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, redisClient *redis.Client, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
+// Go through the contentDir of the Markdown struct and delete any posts that are not in the list of known posts.
+// Only delete them if Frontmatter.Managed is true, however.
+func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
 	defer wg.Done()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for range ticker.C {
+		var err error
+		options.AccessToken, _, err = b.Authorize(options.ClientId, options.ClientSecret, options.RefreshToken)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		knownPosts, err := b.fetchPosts(options.BlogId, options.AccessToken)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		// Get the title of each post and convert it to a slug.
+		// Add it to a slice with ".md" appended to it
+		knownFiles := []string{}
+		for _, post := range knownPosts {
+			// Get the post by its ID
+			resp, err := resty.New().R().
+				SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).
+				SetResult(&map[string]interface{}{}).
+				Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts/" + post["id"].(string))
+			if err != nil {
+				errChan <- err
+				return
+			}
+			post := (*resp.Result().(*map[string]interface{}))
+			title := post["title"].(string)
+			slug := slug.Make(title) + ".md"
+			knownFiles = append(knownFiles, slug)
+		}
+		// List all files in markdownDest.ContentDir
+		fs := afero.NewOsFs()
+		contentDir := filepath.Clean(markdownDest.ContentDir)
+		absContentDir, err := filepath.Abs(contentDir)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		files, err := afero.ReadDir(fs, absContentDir)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		// make a list of files that are not in knownFiles
+		unkownFiles := []string{}
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			if !utils.ContainsString(knownFiles, file.Name()) {
+				unkownFiles = append(unkownFiles, file.Name())
+			}
+		}
+		// Pull the frontmatter for each file
+		for _, file := range unkownFiles {
+			// Get absolute path
+			absPath := filepath.Join(absContentDir, file)
+			// Read file
+			fileBytes, err := afero.ReadFile(fs, absPath)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			markdownString := string(fileBytes)
+			// Get the frontmatter for the file
+			_, _, frontmatter, err := markdownDest.ParseMarkdown(markdownString)
+			log.Debug("Got frontmatter", "frontmatter", frontmatter)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			// TODO: Check if the file is manage and delete it if it is
+		}
 	}
 
 }
