@@ -9,9 +9,9 @@ import (
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/charmbracelet/charm/kv"
 	"github.com/charmbracelet/log"
 	"github.com/go-resty/resty/v2"
+	"github.com/redis/go-redis/v9"
 	"github.com/slashtechno/cross-blogger/pkg/oauth"
 	"github.com/slashtechno/cross-blogger/pkg/utils"
 	"github.com/tmc/langchaingo/llms"
@@ -343,8 +343,14 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	// return nil, errors.New("unreachable")
 }
 
-// CleanMarkdownPosts takes a Markdown destination and using a Charm KV store, remove any posts that are deleted from contentDir
-func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, kvClient *kv.KV, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
+// CleanMarkdownPosts takes a Markdown destination and using a redis, remove any posts that are deleted from contentDir
+func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, redisClient *redis.Client, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
+	defer wg.Done()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for range ticker.C {
+	}
+
 }
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }

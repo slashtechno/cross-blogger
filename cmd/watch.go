@@ -83,8 +83,8 @@ var watchCmd = &cobra.Command{
 		// Assert that the source is Blogger
 		blogger, ok := source.(*platforms.Blogger)
 		if ok {
-			// Check if Charm is enabled
-			if viper.GetBool("charm.enable") {
+			// Check if db is enabled
+			if viper.GetBool("db.enable") {
 				// For every destinationn, assert that it is Markdown
 				// If it is, pass it to Blogger.CleanMarkdownPosts
 				for _, dest := range destinationSlice {
@@ -92,7 +92,7 @@ var watchCmd = &cobra.Command{
 						// Check if overwriting is enabled
 						if markdownDest.Overwrite {
 							wg.Add(1)
-							go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), internal.Kv, markdownDest, options, errChan)
+							go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), internal.RedisClient, markdownDest, options, errChan)
 						} else {
 							log.Debug("Overwriting is disabled; not cleaning up posts", "destination", dest.GetName())
 						}

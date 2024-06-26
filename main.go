@@ -48,17 +48,10 @@ func initConfig() {
 			internal.CredentialViper.SetDefault("llm_base_url", "")
 			internal.CredentialViper.SetDefault("llm_model", "")
 			// Charm stuff
-			internal.CredentialViper.SetDefault("charm", map[string]interface{}{
-				"enable":       false,
-				"db_name":      "cross-blogger",
-				"host":         "cloud.charm.sh",
-				"ssh_port":     35353,
-				"http_port":    35354,
-				"debug":        false,
-				"logfile":      "",
-				"key_type":     "ed25519",
-				"data_dir":     "",
-				"identity_key": "",
+			internal.CredentialViper.SetDefault("db", map[string]interface{}{
+				"enable": false,
+				"url":    "redis://<user>:<pass>@localhost:6379/0",
+				"db":     0,
 			})
 
 			if err := internal.CredentialViper.WriteConfigAs(cmd.CredentialFile); err != nil {

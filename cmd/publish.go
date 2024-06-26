@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	charmclient "github.com/charmbracelet/charm/client"
 	"github.com/charmbracelet/log"
+	"github.com/redis/go-redis/v9"
 	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
@@ -23,20 +23,20 @@ var publishCmd = &cobra.Command{
 	// Arg 3+: Destinations
 	Args: cobra.MinimumNArgs(3),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		var clientConfig charmclient.Config
 		var err error
-		if clientConfig, err = internal.ViperMapToConfig(internal.CredentialViper.GetStringMap("charm")); err != nil {
+		var redisOptions *redis.Options
+		if redisOptions, err = internal.InitializeRedisOptions(internal.CredentialViper.GetStringMap("db")); err != nil {
 			return err
 		}
 		// https://github.com/spf13/viper?tab=readme-ov-file#accessing-nested-keys
-		if !internal.CredentialViper.GetBool("charm.enable") {
-			log.Debug("Charm is disabled")
+		if !internal.CredentialViper.GetBool("db.enable") {
+			log.Debug("DB is disabled")
 			return nil
 		}
-		internal.InitializeKv(
-			internal.CredentialViper.GetString("charm.db_name"),
-			clientConfig,
-		)
+		if err := internal.InitializeDb("redis", redisOptions); err != nil {
+			return err
+		}
+
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
