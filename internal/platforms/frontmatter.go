@@ -3,6 +3,7 @@ package platforms
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // This is more just a set of defaults compatible with Hugo's frontmatter
@@ -89,17 +90,38 @@ func FrontmatterMappingFromInterface(m interface{}) (*FrontmatterMapping, error)
 }
 
 // Take a map and return a Frontmatter struct, taking FrontmatterMapping into account
-func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping FrontmatterMapping) *Frontmatter {
+func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping FrontmatterMapping) (*Frontmatter, error) {
 	frontmatterObject := &Frontmatter{}
 	if title, ok := m[frontmatterMapping.Title]; ok {
 		frontmatterObject.Title = title.(string)
 	}
 	if date, ok := m[frontmatterMapping.Date]; ok {
-		frontmatterObject.Date = date.(string)
+		// Convert the time.time to a string
+		if dateObject, ok := date.(time.Time); ok {
+			frontmatterObject.Date = dateObject.Format(time.RFC3339)
+		} else {
+			// Check if it's a string. If it's not a string or time.Time, return an error
+			if date, ok := date.(string); ok {
+				frontmatterObject.Date = date
+			} else {
+				return nil, errors.New("date is not a string or time.Time")
+			}
+		}
 	}
 	if lastUpdated, ok := m[frontmatterMapping.LastUpdated]; ok {
-		frontmatterObject.DateUpdated = lastUpdated.(string)
+		// Convert the time.time to a string
+		if lastUpdatedObject, ok := lastUpdated.(time.Time); ok {
+			frontmatterObject.DateUpdated = lastUpdatedObject.Format(time.RFC3339)
+		} else {
+			// Check if it's a string. If it's not a string or time.Time, return an error
+			if lastUpdated, ok := lastUpdated.(string); ok {
+				frontmatterObject.DateUpdated = lastUpdated
+			} else {
+				return nil, errors.New("date_updated is not a string or time.Time")
+			}
+		}
 	}
+	
 	if description, ok := m[frontmatterMapping.Description]; ok {
 		frontmatterObject.Description = description.(string)
 	}
@@ -109,5 +131,5 @@ func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping Frontmatter
 	if managed, ok := m[frontmatterMapping.Managed]; ok {
 		frontmatterObject.Managed = managed.(bool)
 	}
-	return frontmatterObject
+	return frontmatterObject, nil
 }

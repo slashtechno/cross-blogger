@@ -7,7 +7,6 @@ import (
 	"github.com/slashtechno/cross-blogger/internal"
 	"github.com/slashtechno/cross-blogger/internal/platforms"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // watchCmd represents the watch command
@@ -83,24 +82,20 @@ var watchCmd = &cobra.Command{
 		// Assert that the source is Blogger
 		blogger, ok := source.(*platforms.Blogger)
 		if ok {
-			// Check if db is enabled
-			if viper.GetBool("db.enable") {
-				// For every destinationn, assert that it is Markdown
-				// If it is, pass it to Blogger.CleanMarkdownPosts
-				for _, dest := range destinationSlice {
-					if markdownDest, ok := dest.(*platforms.Markdown); ok {
-						// Check if overwriting is enabled
-						if markdownDest.Overwrite {
-							wg.Add(1)
-							go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), markdownDest, options, errChan)
-						} else {
-							log.Debug("Overwriting is disabled; not cleaning up posts", "destination", dest.GetName())
-						}
+			for _, dest := range destinationSlice {
+				if markdownDest, ok := dest.(*platforms.Markdown); ok {
+					// Check if overwriting is enabled
+					if markdownDest.Overwrite {
+						wg.Add(1)
+						go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), markdownDest, options, errChan)
 					} else {
-						log.Debug("Destination is not Markdown; not cleaning up posts", "destination", dest.GetName())
+						log.Debug("Overwriting is disabled; not cleaning up posts", "destination", dest.GetName())
 					}
+				} else {
+					log.Debug("Destination is not Markdown; not cleaning up posts", "destination", dest.GetName())
 				}
 			}
+			
 		}
 		wg.Add(1)
 		go func() {
@@ -115,7 +110,7 @@ var watchCmd = &cobra.Command{
 					err := pushToDestinations(post, destinationSlice, false)
 
 					if err != nil {
-						log.Error("Error", "error", err)
+						log.Fatal("Error", "error", err)
 					}
 				// If an error occurs
 				case err := <-errChan:

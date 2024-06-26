@@ -184,7 +184,8 @@ func (m Markdown) Commit(slug string, push bool) (hash string, err error) {
 	return commitHash.String(), nil
 }
 
-func (m Markdown) ParseMarkdown(markdown string) (markdownWithoutFrontmatter string, html string, postFrontmatter *Frontmatter, err error) {
+func (m Markdown) ParseMarkdown(markdown string) (markdownWithoutFrontmatter string, html string, frontmatterObject *Frontmatter, err error) {
+	err = nil
 	// Convert the markdown to HTML with Goldmark
 	// Use the Frontmatter extension to get the frontmatter
 	mdParser := goldmark.New(goldmark.WithExtensions(&goldmarkfrontmatter.Extender{
@@ -197,13 +198,16 @@ func (m Markdown) ParseMarkdown(markdown string) (markdownWithoutFrontmatter str
 		return "", "", nil, err
 	}
 	// Get the frontmatter
-	frontmatterObject := FrontmatterFromMap(parsedDoc.OwnerDocument().Meta(), m.FrontmatterMapping)
+	frontmatterObject, err = FrontmatterFromMap(parsedDoc.OwnerDocument().Meta(), m.FrontmatterMapping)
+	if err != nil {
+		return "", "", nil, err
+	}
 	// Check if title and canonical URL are set
 	if frontmatterObject.Title == "" {
 		return "", "", nil, err
 	}
 	if frontmatterObject.CanonicalUrl == "" {
-		log.Warn("canonical_url is not set in frontmatter")
+		log.Debug("canonical_url is not set in frontmatter")
 	}
 	// Convert the HTML to Markdown
 	html = buf.String()

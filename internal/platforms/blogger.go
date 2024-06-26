@@ -378,8 +378,9 @@ func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, 
 			}
 			post := (*resp.Result().(*map[string]interface{}))
 			title := post["title"].(string)
-			slug := slug.Make(title) + ".md"
-			knownFiles = append(knownFiles, slug)
+			slug := slug.Make(title)
+			fileName := slug + ".md"
+			knownFiles = append(knownFiles, fileName)
 		}
 		// List all files in markdownDest.ContentDir
 		fs := afero.NewOsFs()
@@ -401,6 +402,7 @@ func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, 
 				continue
 			}
 			if !utils.ContainsString(knownFiles, file.Name()) {
+				// With Hugo at least, `_index.md`
 				unkownFiles = append(unkownFiles, file.Name())
 			}
 		}
@@ -416,13 +418,30 @@ func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, 
 			}
 			markdownString := string(fileBytes)
 			// Get the frontmatter for the file
-			_, _, frontmatter, err := markdownDest.ParseMarkdown(markdownString)
-			log.Debug("Got frontmatter", "frontmatter", frontmatter)
+			_, _, postFrontmatter, err := markdownDest.ParseMarkdown(markdownString)
 			if err != nil {
 				errChan <- err
 				return
 			}
-			// TODO: Check if the file is manage and delete it if it is
+			log.Debug("Got frontmatter", "frontmatter", postFrontmatter)
+			if postFrontmatter.Managed {
+				// Delete the file
+				err := fs.Remove(absPath)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				// Comit and push the changes
+				if markdownDest.GitDir != "" {
+					slug := strings.TrimSuffix(file, filepath.Ext(file))
+					commitHash, err := markdownDest.Commit(slug, true)
+					log.Info("Committed and pushed changes", "hash", commitHash)
+					if err != nil {
+						errChan <- err
+						return
+					}
+				}
+			}
 		}
 	}
 
