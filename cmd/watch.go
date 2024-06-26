@@ -91,7 +91,8 @@ var watchCmd = &cobra.Command{
 					if markdownDest, ok := dest.(*platforms.Markdown); ok {
 						// Check if overwriting is enabled
 						if markdownDest.Overwrite {
-							go blogger.CleanMarkdownPosts(internal.ConfigViper.GetDuration("interval"), internal.Kv, markdownDest, options, errChan)
+							wg.Add(1)
+							go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), internal.Kv, markdownDest, options, errChan)
 						} else {
 							log.Debug("Overwriting is disabled; not cleaning up posts", "destination", dest.GetName())
 						}
@@ -110,7 +111,7 @@ var watchCmd = &cobra.Command{
 				// If a new post arrives
 				case post := <-postChan:
 					// Log the new post
-					log.Info("New post", "post", post)
+					log.Info("Posting", "title", post.Title)
 					err := pushToDestinations(post, destinationSlice, false)
 
 					if err != nil {

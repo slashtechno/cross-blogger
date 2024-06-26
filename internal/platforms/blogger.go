@@ -259,6 +259,31 @@ func (b *Blogger) Watch(wg *sync.WaitGroup, interval time.Duration, options Push
 	}
 }
 
+func (b *Blogger) fetchPosts(blogId, accessToken string) ([]map[string]interface{}, error) {
+	// Get the list of posts
+	client := resty.New()
+	resp, err := client.R().
+		SetHeader("Authorization", fmt.Sprintf("Bearer %s", accessToken)).
+		SetResult(&map[string]interface{}{}).
+		SetQueryParam("fetchBodies", "true").
+		SetQueryParam("status", "LIVE").
+		Get("https://www.googleapis.com/blogger/v3/blogs/" + blogId + "/posts")
+	if err != nil {
+		return nil, err
+	}
+	// Assert that posts is a pointer to a map. However, dereference it to get the map
+	posts := (*resp.Result().(*map[string]interface{}))["items"].([]interface{})
+	// Make another slice but assert each element to be a map of string to interface
+	postsValidated := []map[string]interface{}{}
+	for _, p := range posts {
+		if post, ok := p.(map[string]interface{}); ok {
+			postsValidated = append(postsValidated, post)
+		}
+		postsValidated = append(postsValidated, p.(map[string]interface{}))
+	}
+	return postsValidated, nil
+}
+
 // Get posts that haven't been seen before and return them
 func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 	// Get the list of posts
@@ -283,7 +308,7 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 			b.knownPosts = append(b.knownPosts, post["id"].(string))
 		}
 		// Return an empty slice because there are no new posts
-		log.Debug("No known posts", "knownPosts", b.knownPosts)
+		log.Debug("Adding all posts as none are currently known", "knownPosts", b.knownPosts)
 		return []PostData{}, nil
 	} else {
 		// Get the new posts
@@ -332,7 +357,8 @@ func (b *Blogger) fetchNewPosts(options PushPullOptions) ([]PostData, error) {
 }
 
 // CleanMarkdownPosts takes a Markdown destination and using a Charm KV store, remove any posts that are deleted from contentDir
-func (b Blogger) CleanMarkdownPosts(interval time.Duration, kvClient *kv.KV, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
+func (b Blogger) CleanMarkdownPosts(wg *sync.WaitGroup, interval time.Duration, kvClient *kv.KV, markdownDest *Markdown, options PushPullOptions, errChan chan<- error) {
+
 }
 func (b Blogger) GetName() string { return b.Name }
 func (b Blogger) GetType() string { return "blogger" }
