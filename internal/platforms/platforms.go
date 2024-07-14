@@ -24,20 +24,22 @@ type WatchableSource interface {
 	Source
 	// Watch(time.Duration, PushPullOptions, chan<- PostData, chan<- error)
 	Watch(*sync.WaitGroup, time.Duration, PushPullOptions, chan<- PostData, chan<- error)
+	CleanMarkdownPosts(*sync.WaitGroup, time.Duration, *Markdown, PushPullOptions, chan<- error)
 }
 
 type PushPullOptions struct {
-	AccessToken  string
-	BlogId       string
-	PostUrl      string
-	Filepath     string
-	RefreshToken string
-	ClientId     string
-	ClientSecret string
-	LlmProvider  string
-	LlmBaseUrl   string
-	LlmApiKey    string
-	LlmModel     string
+	AccessToken    string
+	BlogId         string
+	PostUrl        string
+	Filepath       string
+	RefreshToken   string
+	ClientId       string
+	ClientSecret   string
+	LlmProvider    string
+	LlmBaseUrl     string
+	LlmApiKey      string
+	LlmModel       string
+	CategoryPrefix string
 }
 
 type PostData struct {

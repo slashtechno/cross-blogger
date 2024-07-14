@@ -116,6 +116,7 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	if !ok {
 		return PostData{}, fmt.Errorf("updated date not found in response or is not a string")
 	}
+	// result["labels"].([]interface{})
 	dateUpdated, err := time.Parse(time.RFC3339, rfcDateUpdated)
 	if err != nil {
 		return PostData{}, err
