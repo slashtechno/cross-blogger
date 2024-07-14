@@ -93,7 +93,7 @@ var watchCmd = &cobra.Command{
 					log.Debug("Destination is not Markdown; not cleaning up posts", "destination", dest.GetName())
 				}
 			}
-			
+
 		}
 		wg.Add(1)
 		go func() {

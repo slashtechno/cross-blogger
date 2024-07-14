@@ -117,6 +117,33 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 		return PostData{}, fmt.Errorf("updated date not found in response or is not a string")
 	}
 	// result["labels"].([]interface{})
+	labels := []string{}
+	categories := []string{}
+	tags := []string{}
+	// Assert that the labels key is a slice of interfaces
+	// Type assertions don't work on a per-element basis so we have to loop through the slice
+	labelsAsserted, ok := result["labels"].([]interface{})
+	if !ok {
+		log.Infof("No labels found for post %s", title)
+	} else {
+		for _, tag := range labelsAsserted {
+			if tagStr, ok := tag.(string); ok {
+				labels = append(labels, tagStr)
+			} else {
+				log.Warn("Blogger label is not a string", "tag", tag)
+			}
+		}
+		// For each label, check if it has the category prefix
+		// If it does, add it to the categories slice
+		// Otherwise, add it to the tags slice
+		for _, label := range labels {
+			if strings.HasPrefix(label, b.CategoryPrefix) {
+				categories = append(categories, strings.TrimPrefix(label, b.CategoryPrefix))
+			} else {
+				tags = append(tags, label)
+			}
+		}
+	}
 	dateUpdated, err := time.Parse(time.RFC3339, rfcDateUpdated)
 	if err != nil {
 		return PostData{}, err
@@ -173,6 +200,8 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 		Date:         date,
 		DateUpdated:  dateUpdated,
 		Description:  postDescription,
+		Categories:   categories,
+		Tags:         tags,
 		CanonicalUrl: canonicalUrl,
 	}, nil
 

@@ -28,18 +28,17 @@ type WatchableSource interface {
 }
 
 type PushPullOptions struct {
-	AccessToken    string
-	BlogId         string
-	PostUrl        string
-	Filepath       string
-	RefreshToken   string
-	ClientId       string
-	ClientSecret   string
-	LlmProvider    string
-	LlmBaseUrl     string
-	LlmApiKey      string
-	LlmModel       string
-	CategoryPrefix string
+	AccessToken  string
+	BlogId       string
+	PostUrl      string
+	Filepath     string
+	RefreshToken string
+	ClientId     string
+	ClientSecret string
+	LlmProvider  string
+	LlmBaseUrl   string
+	LlmApiKey    string
+	LlmModel     string
 }
 
 type PostData struct {
@@ -50,6 +49,8 @@ type PostData struct {
 	DateUpdated time.Time
 	// TODO: Add frontmatter descriptions
 	Description string
+	Categories  []string
+	Tags        []string
 	// Other fields that are probably needed are canonical URL, publish date, and description
 	CanonicalUrl string
 }
@@ -63,8 +64,9 @@ type PostData struct {
 // }
 
 type Blogger struct {
-	Name    string
-	BlogUrl string
+	Name           string
+	BlogUrl        string
+	CategoryPrefix string
 	// https://developers.google.com/blogger/docs/3.0/reference/posts/delete
 	Overwrite               bool
 	GenerateLlmDescriptions bool
@@ -133,11 +135,19 @@ func CreateSource(sourceMap map[string]interface{}) (Source, error) {
 		if !ok || blogUrl == "" {
 			return nil, fmt.Errorf("blog_url is required for blogger")
 		}
+		// Check if category_prefix is set, if not, set it to null and move on
+		// If the value is not a string, it will be set to "category::"
+		categoryPrefix, ok := sourceMap["category_prefix"].(string)
+		if !ok || categoryPrefix == "" {
+			log.Warn("category_prefix is not a string or is empty. Using default", "default", "category::")
+			categoryPrefix = "category::"
+		}
 		generateLlmDescriptions, _ := sourceMap["generate_llm_descriptions"].(bool)
 		return &Blogger{
 			Name:                    name,
 			BlogUrl:                 blogUrl,
 			GenerateLlmDescriptions: generateLlmDescriptions,
+			CategoryPrefix:          categoryPrefix,
 		}, nil
 	case "markdown":
 		// If the content_dir is not set, set it to null as its not required
