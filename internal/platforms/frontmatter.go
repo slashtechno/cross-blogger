@@ -7,7 +7,15 @@ import (
 )
 
 // This is more just a set of defaults compatible with Hugo's frontmatter
-var FrontMatterMappings = map[string]string{"title": "title", "date": "date", "date_updated": "lastmod", "description": "description", "canonical_url": "canonicalURL", "managed": "managedByCrossBlogger"}
+var FrontMatterMappings = map[string]string{
+	"title":         "title",
+	"date":          "date",
+	"date_updated":  "lastmod",
+	"description":   "description",
+	"categories":    "categories",
+	"tags":          "tags",
+	"canonical_url": "canonicalURL",
+	"managed":       "managedByCrossBlogger"}
 
 type Frontmatter struct {
 	// TOOD: make frontmatter mappings configurable, somehow
@@ -15,6 +23,8 @@ type Frontmatter struct {
 	Date         string
 	DateUpdated  string
 	Description  string
+	Categories   []string
+	Tags         []string
 	CanonicalUrl string
 	Managed      bool
 }
@@ -24,6 +34,8 @@ type FrontmatterMapping struct {
 	Date         string
 	LastUpdated  string
 	Description  string
+	Categories   string
+	Tags         string
 	CanonicalURL string
 	Managed      string
 }
@@ -49,6 +61,12 @@ func (f *Frontmatter) ToMap(frontmatterMapping FrontmatterMapping) map[string]in
 	}
 	if f.Description != "" && frontmatterMapping.Description != "" {
 		frontmatterAsMap[frontmatterMapping.Description] = f.Description
+	}
+	if len(f.Categories) > 0 && frontmatterMapping.Categories != "" {
+		frontmatterAsMap[frontmatterMapping.Categories] = f.Categories
+	}
+	if len(f.Tags) > 0 && frontmatterMapping.Tags != "" {
+		frontmatterAsMap[frontmatterMapping.Tags] = f.Tags
 	}
 	if f.CanonicalUrl != "" && frontmatterMapping.CanonicalURL != "" {
 		frontmatterAsMap[frontmatterMapping.CanonicalURL] = f.CanonicalUrl
@@ -85,6 +103,8 @@ func FrontmatterMappingFromInterface(m interface{}) (*FrontmatterMapping, error)
 		LastUpdated:  frontmatterMapping["date_updated"].(string),
 		CanonicalURL: frontmatterMapping["canonical_url"].(string),
 		Description:  frontmatterMapping["description"].(string),
+		Categories:   frontmatterMapping["categories"].(string),
+		Tags:         frontmatterMapping["tags"].(string),
 		Managed:      frontmatterMapping["managed"].(string),
 	}, nil
 }
@@ -121,9 +141,25 @@ func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping Frontmatter
 			}
 		}
 	}
-	
+
 	if description, ok := m[frontmatterMapping.Description]; ok {
 		frontmatterObject.Description = description.(string)
+	}
+	if categories, ok := m[frontmatterMapping.Categories]; ok {
+		// Convert the interface{} to a []string
+		categoriesSlice, ok := categories.([]string)
+		if !ok {
+			return nil, errors.New("categories is not a []string")
+		}
+		frontmatterObject.Categories = categoriesSlice
+	}
+	if tags, ok := m[frontmatterMapping.Tags]; ok {
+		// Convert the interface{} to a []string
+		tagsSlice, ok := tags.([]string)
+		if !ok {
+			return nil, errors.New("tags is not a []string")
+		}
+		frontmatterObject.Tags = tagsSlice
 	}
 	if canonicalURL, ok := m[frontmatterMapping.CanonicalURL]; ok {
 		frontmatterObject.CanonicalUrl = canonicalURL.(string)

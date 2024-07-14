@@ -77,6 +77,8 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 		// Date:         data.Date.Format(time.RFC3339),
 		// DateUpdated:  data.DateUpdated.Format(time.RFC3339),
 		Description:  data.Description,
+		Categories:   data.Categories,
+		Tags:         data.Tags,
 		CanonicalUrl: data.CanonicalUrl,
 		Managed:      true,
 	}
