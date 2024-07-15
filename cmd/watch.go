@@ -79,15 +79,13 @@ var watchCmd = &cobra.Command{
 		// This will send new posts to postChan and errors to errChan
 		wg.Add(1)
 		go watcher.Watch(&wg, internal.ConfigViper.GetDuration("interval"), options, postChan, errChan)
-		// Assert that the source is Blogger
-		blogger, ok := source.(*platforms.Blogger)
 		if ok {
 			for _, dest := range destinationSlice {
 				if markdownDest, ok := dest.(*platforms.Markdown); ok {
 					// Check if overwriting is enabled
 					if markdownDest.Overwrite {
 						wg.Add(1)
-						go blogger.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), markdownDest, options, errChan)
+						go watcher.CleanMarkdownPosts(&wg, internal.ConfigViper.GetDuration("interval"), markdownDest, options, errChan)
 					} else {
 						log.Debug("Overwriting is disabled; not cleaning up posts", "destination", dest.GetName())
 					}
@@ -95,7 +93,7 @@ var watchCmd = &cobra.Command{
 					log.Debug("Destination is not Markdown; not cleaning up posts", "destination", dest.GetName())
 				}
 			}
-			
+
 		}
 		wg.Add(1)
 		go func() {

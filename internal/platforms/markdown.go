@@ -73,10 +73,10 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	// Create the frontmatter
 	// Add the frontmatter fields that are selected
 	postFrontmatter := Frontmatter{
-		Title: data.Title,
-		// Date:         data.Date.Format(time.RFC3339),
-		// DateUpdated:  data.DateUpdated.Format(time.RFC3339),
+		Title:        data.Title,
 		Description:  data.Description,
+		Categories:   data.Categories,
+		Tags:         data.Tags,
 		CanonicalUrl: data.CanonicalUrl,
 		Managed:      true,
 	}
@@ -95,6 +95,7 @@ func (m Markdown) Push(data PostData, options PushPullOptions) error {
 	if err != nil {
 		return err
 	}
+	// Write the frontmatter in between the delimiters
 	content := fmt.Sprintf("---\n%s---\n\n%s", frontmatterYaml, data.Markdown)
 	log.Debug("Writing content", "content", content, "file", filePath)
 	_, err = file.WriteString(content)
@@ -211,6 +212,7 @@ func (m Markdown) ParseMarkdown(markdown string) (markdownWithoutFrontmatter str
 	}
 	// Convert the HTML to Markdown
 	html = buf.String()
+	
 	// The frontmatter is stripped before converting to HTML
 	// Just convert the HTML to Markdown so the Markdown doesn't have the frontmatter (otherwise it would be duplicated)
 	markdownWithoutFrontmatter, err = md.NewConverter("", true, nil).ConvertString(html)

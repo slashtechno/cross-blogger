@@ -16,7 +16,6 @@ var RootCmd = &cobra.Command{
 	Short: "A utility to cross-publish content between different platforms",
 	Long: `cross-blogger is a utility to cross-publish content between different platforms.
 	By default, the files for storing credentials and configuration are separate.`,
-
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

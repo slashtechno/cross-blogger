@@ -4,6 +4,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: unless-stopped
     volumes:
       - ./config:/app/config
-    command: ["--config", "/app/config/config.toml", "--credentials-file", "/app/config/credentials.yaml", "publish", "watch"]
+      # Markdown directory
+      - /path/to/hugo/site:/app/output_markdown
+    command: [
+      "--config", 
+      "/app/config/config.toml", 
+      "--credentials-file", 
+      "/app/config/credentials.yaml",
+      "publish", "watch", 
+      # Source
+      "blogger", 
+      # Destination(s)
+      "markdown"
+      ]

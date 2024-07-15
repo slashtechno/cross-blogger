@@ -101,6 +101,7 @@ func initConfig() {
 					"type":                      "blogger",
 					"blog_url":                  "https://example.com",
 					"generate_llm_descriptions": true,
+					"category_prefix":           "category::",
 				},
 				{
 					"name":                "aBlogInMarkdown",
