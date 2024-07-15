@@ -54,6 +54,8 @@ func (b Blogger) Authorize(clientId string, clientSecret string, providedRefresh
 	return accessToken, refreshToken, nil
 
 }
+
+// Get the blog ID from the blog URL property of the Blogger struct.
 func (b Blogger) GetBlogId(accessToken string) (string, error) {
 	client := resty.New()
 	resp, err := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", accessToken)).SetResult(&map[string]interface{}{}).Get("https://www.googleapis.com/blogger/v3/blogs/byurl?url=" + b.BlogUrl)
@@ -71,6 +73,8 @@ func (b Blogger) GetBlogId(accessToken string) (string, error) {
 	}
 	return id.(string), nil
 }
+
+// Pull the post from the blog and return the post data.
 func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	// Compile a regex that matches both http and https schemes
 	regex, err := regexp.Compile(`^https?:\/\/[^\/]+`)
@@ -80,6 +84,7 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	// Use regex to replace the scheme and domain part of the URL
 	postPath := regex.ReplaceAllString(options.PostUrl, "")
 	client := resty.New()
+	// Make the request and unmarshal the response into a map
 	resp, err := client.R().SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).SetResult(&map[string]interface{}{}).Get("https://www.googleapis.com/blogger/v3/blogs/" + options.BlogId + "/posts/bypath?path=" + postPath)
 	if err != nil {
 		return PostData{}, err
@@ -102,12 +107,13 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	if !ok {
 		return PostData{}, fmt.Errorf("url not found in response or is not a string")
 	}
+
 	// Date published is returned like `"published": "2024-06-19T09:37:00-07:00,`
-	// Convert the HTML to Markdown
 	rfcDate, ok := result["published"].(string)
 	if !ok {
 		return PostData{}, fmt.Errorf("published date not found in response or is not a string")
 	}
+	// The date is in RFC3339 format and needs to be converted to a time.Time object
 	date, err := time.Parse(time.RFC3339, rfcDate)
 	if err != nil {
 		return PostData{}, err
@@ -116,12 +122,17 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	if !ok {
 		return PostData{}, fmt.Errorf("updated date not found in response or is not a string")
 	}
-	// result["labels"].([]interface{})
+	dateUpdated, err := time.Parse(time.RFC3339, rfcDateUpdated)
+	if err != nil {
+		return PostData{}, err
+	}
+
+	// Declare the slices here so they can be used outside the if statement
 	labels := []string{}
 	categories := []string{}
 	tags := []string{}
 	// Assert that the labels key is a slice of interfaces
-	// Type assertions don't work on a per-element basis so we have to loop through the slice
+	// Labels itself is of an unknown type, so its elements need to be asserted to be strings
 	labelsAsserted, ok := result["labels"].([]interface{})
 	if !ok {
 		log.Infof("No labels found for post %s", title)
@@ -144,14 +155,13 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 			}
 		}
 	}
-	dateUpdated, err := time.Parse(time.RFC3339, rfcDateUpdated)
-	if err != nil {
-		return PostData{}, err
-	}
+
+	// Convert the HTML to markdown
 	markdown, err := md.NewConverter("", true, nil).ConvertString(html)
 	if err != nil {
 		return PostData{}, err
 	}
+
 	// If GenerateLlmDescriptions is true, generate descriptions for the post
 	var postDescription string
 	var llmImplementation llms.Model
@@ -193,6 +203,7 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 		log.Debug("Generated description", "description", postDescription)
 	}
 
+	// Once all the data is retrieved, return it
 	return PostData{
 		Title:        title,
 		Html:         html,
@@ -206,6 +217,8 @@ func (b Blogger) Pull(options PushPullOptions) (PostData, error) {
 	}, nil
 
 }
+
+// Push PostData to the blog.
 func (b Blogger) Push(data PostData, options PushPullOptions) error {
 	// Set the client
 	client := resty.New()
@@ -216,6 +229,7 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 		// Get the list of existing posts
 		resp, err := client.R().
 			SetHeader("Authorization", fmt.Sprintf("Bearer %s", options.AccessToken)).
+			// Unmarshal the response into a map
 			SetResult(&map[string]interface{}{}).
 			Get("https://www.googleapis.com/blogger/v3/blogs/" + blogId + "/posts")
 		if err != nil {
@@ -225,6 +239,7 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 
 		// Check if a post with the same title already exists
 		for _, p := range posts {
+			// Assert that the post is a map of string to interface
 			post := p.(map[string]interface{})
 			if post["title"].(string) == data.Title {
 				// Delete the post
@@ -237,7 +252,6 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 				}
 				log.Info("Moved post with the same title to trash", "title", data.Title)
 				// If break is used and there are multiple posts with the same title, only the first one will be deleted
-				// break
 			}
 		}
 	}
@@ -263,18 +277,24 @@ func (b Blogger) Push(data PostData, options PushPullOptions) error {
 
 // Every interval, check for new posts (posts that haven't been seen before) and send them to the postChan channel.
 func (b *Blogger) Watch(wg *sync.WaitGroup, interval time.Duration, options PushPullOptions, postChan chan<- PostData, errChan chan<- error) {
+	// A ticker works by sending a message to the channel every interval
 	ticker := time.NewTicker(interval)
+	// Defer the stopping of the ticker and the decrementing of the wait group
+	// When the function ends, the wait group will be decremented and the ticker will stop
 	defer ticker.Stop()
 	defer wg.Done()
+	// Loop forever and wait for the ticker to send a message to the channel
 	for range ticker.C {
 		// Fetch new posts from Blogger
 		// Refresh the access token
 		var err error
+		// Get the access token
 		options.AccessToken, _, err = b.Authorize(options.ClientId, options.ClientSecret, options.RefreshToken)
 		if err != nil {
 			errChan <- err
 			return
 		}
+		// Fetch new posts using the fresh access token
 		posts, err := b.fetchNewPosts(options)
 		if err != nil {
 			errChan <- err
@@ -284,7 +304,7 @@ func (b *Blogger) Watch(wg *sync.WaitGroup, interval time.Duration, options Push
 			return
 		}
 
-		// Send new posts to the channel
+		// Send new posts to the channel to be pushed
 		for _, post := range posts {
 			postChan <- post
 		}

@@ -10,7 +10,6 @@ import (
 
 type Destination interface {
 	Push(PostData, PushPullOptions) error
-	// Push(*redis.Client, PostData, PushPullOptions) error
 	GetName() string
 	GetType() string
 }
@@ -47,21 +46,12 @@ type PostData struct {
 	Markdown    string
 	Date        time.Time
 	DateUpdated time.Time
-	// TODO: Add frontmatter descriptions
 	Description string
 	Categories  []string
 	Tags        []string
 	// Other fields that are probably needed are canonical URL, publish date, and description
 	CanonicalUrl string
 }
-
-// type PlatformParent struct {
-// 	Name string
-// }
-
-// func (p PlatformParent) Push() {
-// 	log.Error("child class must implement this method")
-// }
 
 type Blogger struct {
 	Name           string
@@ -74,6 +64,7 @@ type Blogger struct {
 }
 
 func CreateDestination(destMap map[string]interface{}) (Destination, error) {
+	// If the name is not set, error
 	name, ok := destMap["name"].(string)
 	if !ok || name == "" {
 		return nil, fmt.Errorf("name is required")
@@ -81,13 +72,15 @@ func CreateDestination(destMap map[string]interface{}) (Destination, error) {
 
 	switch destMap["type"] {
 	case "blogger":
+		// If the blog_url is not set, error
 		blogUrl, ok := destMap["blog_url"].(string)
 		if !ok || blogUrl == "" {
 			return nil, fmt.Errorf("blog_url is required for blogger")
 		}
 
-		overwrite, _ := destMap["overwrite"].(bool) // If not set or not a bool, defaults to false
 		// Optionally, enable LLM generated descriptions
+		// If not set or not a bool, defaults to false
+		overwrite, _ := destMap["overwrite"].(bool) 
 		return &Blogger{
 			Name:      name,
 			BlogUrl:   blogUrl,

@@ -21,23 +21,6 @@ var publishCmd = &cobra.Command{
 	// Arg 2: Specifier
 	// Arg 3+: Destinations
 	Args: cobra.MinimumNArgs(3),
-	// PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-	// 	var err error
-	// 	var redisOptions *redis.Options
-	// 	if redisOptions, err = internal.InitializeRedisOptions(internal.CredentialViper.GetStringMap("db")); err != nil {
-	// 		return err
-	// 	}
-	// 	// https://github.com/spf13/viper?tab=readme-ov-file#accessing-nested-keys
-	// 	if !internal.CredentialViper.GetBool("db.enable") {
-	// 		log.Debug("DB is disabled")
-	// 		return nil
-	// 	}
-	// 	if err := internal.InitializeDb("redis", redisOptions); err != nil {
-	// 		return err
-	// 	}
-
-	// 	return nil
-	// },
 	Run: func(cmd *cobra.Command, args []string) {
 		destinations := internal.ConfigViper.Get("destinations")
 		sources := internal.ConfigViper.Get("sources")
@@ -190,6 +173,9 @@ func pushToDestinations(postData platforms.PostData, destinationSlice []platform
 		var options platforms.PushPullOptions
 		switch destination.GetType() {
 		case "markdown":
+			// No runtime options for Markdown
+			// Filepath is generated from by turning the title into a URL-friendly slug
+			// The content directory is part of the Markdown struct
 			options = platforms.PushPullOptions{}
 
 		case "blogger":

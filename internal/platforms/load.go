@@ -4,11 +4,10 @@ import (
 	"errors"
 )
 
-
 // Load a slice of Destinations and Sources from values passed which the calling module shoukd have read from config
 // If selectedDestinations is empty or nil, all destinations are loaded
 func Load(sources interface{}, destinations interface{}, selectedSources []string, selectedDestinations []string) ([]Source, []Destination, error) {
-	// Assert that destinations is a slice of interfaces
+	// Ensure that sources and destinations are slices
 	configuredDestinations, ok := destinations.([]interface{})
 	if !ok {
 		return nil, nil, errors.New("assertion failed: destinations is not a slice of interfaces")
@@ -17,8 +16,7 @@ func Load(sources interface{}, destinations interface{}, selectedSources []strin
 	if !ok {
 		return nil, nil, errors.New("assertion failed: sources is not a slice of interfaces")
 	}
-
-	// Create the slice of destinations and slice of sources that will be returned
+	// Since the data is unknown until runtime, iterate over the interfaces and convert them to the correct type
 	var destinationSlice []Destination
 	var sourceSlice []Source
 	// Iterate over the destinations
