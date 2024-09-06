@@ -146,20 +146,40 @@ func FrontmatterFromMap(m map[string]interface{}, frontmatterMapping Frontmatter
 		frontmatterObject.Description = description.(string)
 	}
 	if categories, ok := m[frontmatterMapping.Categories]; ok {
-		// Convert the interface{} to a []string
-		categoriesSlice, ok := categories.([]string)
+		// Check if categories is a []interface{}
+		categoriesSlice, ok := categories.([]interface{})
 		if !ok {
-			return nil, errors.New("categories is not a []string")
+			return nil, errors.New("categories is not a []interface{}")
 		}
-		frontmatterObject.Categories = categoriesSlice
+
+		// Convert []interface{} to []string
+		var stringSlice []string
+		for _, category := range categoriesSlice {
+			str, ok := category.(string)
+			if !ok {
+				return nil, errors.New("one of the categories is not a string")
+			}
+			stringSlice = append(stringSlice, str)
+		}
+		frontmatterObject.Categories = stringSlice
 	}
 	if tags, ok := m[frontmatterMapping.Tags]; ok {
-		// Convert the interface{} to a []string
-		tagsSlice, ok := tags.([]string)
+		// Check if tags is a []interface{}
+		tagsSlice, ok := tags.([]interface{})
 		if !ok {
-			return nil, errors.New("tags is not a []string")
+			return nil, errors.New("tags is not a []interface{}")
 		}
-		frontmatterObject.Tags = tagsSlice
+
+		// Convert []interface{} to []string
+		var stringSlice []string
+		for _, tag := range tagsSlice {
+			str, ok := tag.(string)
+			if !ok {
+				return nil, errors.New("one of the tags is not a string")
+			}
+			stringSlice = append(stringSlice, str)
+		}
+		frontmatterObject.Tags = stringSlice
 	}
 	if canonicalURL, ok := m[frontmatterMapping.CanonicalURL]; ok {
 		frontmatterObject.CanonicalUrl = canonicalURL.(string)

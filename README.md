@@ -1,5 +1,6 @@
 # Cross Blogger  
 Headless CMS for static site generators (especially Hugo) powered by Google's Blogger.  
+![Screenshot with Blogger, a Hugo site, and a post opened](screenshot.png) 
 ## Introduction  
 The intended use case is to use the "watch" mode to watch the Blogger blog add content to a Hugo content directory. When a new post is published on Blogger (including publishing a draft), it is automatically added to the Hugo content directory and can be committed and pushed to a Git repository. Using a continuous deployment service, such as GitHub actions, the site can be automatically built and deployed with the new post.  
 If enabled, posts which were added automatically can be updated or deleted from the content directory when they are deleted or unpublished on Blogger. Thus, a post can be unpublished, updated, and republished on Blogger, although this assumes that the program is given enough time to detect the unpublishing.  
