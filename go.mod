@@ -16,7 +16,7 @@ require (
 	github.com/tmc/langchaingo v0.1.12
 	github.com/yuin/goldmark v1.7.4
 	go.abhg.dev/goldmark/frontmatter v0.2.0
-	golang.org/x/oauth2 v0.21.0
+	golang.org/x/oauth2 v0.23.0
 )
 
 require (
